@@ -453,6 +453,111 @@ async function deleteCurrentEntry() {
   showToast('Entry deleted');
 }
 
+// ================= BACKUP / RESTORE / CLEAR =================
+function openBackupModal() {
+  document.getElementById('backup-modal-overlay').classList.add('open');
+}
+function closeBackupModal() {
+  document.getElementById('backup-modal-overlay').classList.remove('open');
+}
+
+function exportJSON() {
+  const payload = {
+    exported_at: new Date().toISOString(),
+    categories: categories.map(c => ({ name: c.name, sort_order: c.sort_order })),
+    entries: entries.map(e => ({
+      entry_type: e.entry_type,
+      title: e.title,
+      url: e.url,
+      category_name: e.category?.name || null,
+      status: e.status,
+      tags: e.tags || [],
+      custom_fields: e.custom_fields || {},
+      pinned: e.pinned,
+      linked_docs: (e.linked_docs || []).map(d => ({ title: d.title, url: d.url, doc_type: d.doc_type }))
+    }))
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `studio-index-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Backup downloaded');
+}
+
+async function importJSON() {
+  if (!supabase) return showToast('Not connected to Supabase.');
+  const raw = document.getElementById('import-json-input').value.trim();
+  if (!raw) return showToast('Paste a backup JSON first.');
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    return showToast('Invalid JSON: ' + e.message);
+  }
+  if (!Array.isArray(parsed.entries)) return showToast('Invalid backup: missing "entries" array.');
+
+  if (!confirm('This replaces everything currently on the dashboard with the backup. Continue?')) return;
+
+  showToast('Restoring…');
+
+  // Wipe current data (linked_docs cascades from entries).
+  await supabase.from('entries').delete().not('id', 'is', null);
+  await supabase.from('categories').delete().not('id', 'is', null);
+
+  // Recreate categories, building a name -> new id map.
+  const catNameToId = {};
+  const cats = Array.isArray(parsed.categories) ? parsed.categories : [];
+  for (const c of cats) {
+    const { data, error } = await supabase.from('categories').insert({ name: c.name, sort_order: c.sort_order || 0 }).select().single();
+    if (!error) catNameToId[c.name] = data.id;
+  }
+
+  // Recreate entries, then their linked docs.
+  for (const e of parsed.entries) {
+    const categoryId = e.category_name ? catNameToId[e.category_name] || null : null;
+    const { data: newEntry, error } = await supabase.from('entries').insert({
+      entry_type: e.entry_type || 'app',
+      title: e.title,
+      url: e.url || null,
+      category_id: categoryId,
+      status: e.status || null,
+      tags: e.tags || [],
+      custom_fields: e.custom_fields || {},
+      pinned: !!e.pinned
+    }).select().single();
+    if (error || !newEntry) continue;
+
+    const docs = (e.linked_docs || [])
+      .filter(d => d.title && d.url)
+      .map(d => ({ entry_id: newEntry.id, title: d.title, url: d.url, doc_type: d.doc_type || 'link' }));
+    if (docs.length > 0) await supabase.from('linked_docs').insert(docs);
+  }
+
+  document.getElementById('import-json-input').value = '';
+  closeBackupModal();
+  await loadAll();
+  showToast('Backup restored');
+}
+
+async function clearAllData() {
+  if (!supabase) return showToast('Not connected to Supabase.');
+  if (!confirm('This permanently deletes every entry and category on this dashboard. This cannot be undone. Continue?')) return;
+  if (!confirm('Really clear everything? Consider downloading a backup first.')) return;
+
+  await supabase.from('entries').delete().not('id', 'is', null);
+  await supabase.from('categories').delete().not('id', 'is', null);
+
+  closeBackupModal();
+  await loadAll();
+  showToast('All data cleared');
+}
+
 // ---------- Utilities ----------
 function showToast(msg) {
   const el = document.getElementById('toast');

@@ -32,6 +32,9 @@
         <button id="btn-day" onclick="setSky('day')" title="Daytime">☀︎</button>
         <button id="btn-night" onclick="setSky('night')" title="Nighttime">☾</button>
       </div>
+      <button class="icon-btn" onclick="openBackupModal()" title="Backup, restore, or clear data">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+      </button>
     </div>
   </header>
 
@@ -160,6 +163,25 @@
         </div>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ================= BACKUP / RESTORE MODAL ================= -->
+<div class="modal-overlay" id="backup-modal-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeBackupModal()">✕</button>
+    <h3>Backup &amp; restore</h3>
+    <p class="hint">Export everything to a JSON file, restore from one, or wipe the dashboard clean.</p>
+
+    <div class="field-label">Export</div>
+    <button type="button" class="btn-primary" style="width:100%; margin-bottom: 18px;" onclick="exportJSON()">Download JSON backup</button>
+
+    <div class="field-label">Restore from JSON</div>
+    <textarea id="import-json-input" rows="5" placeholder="Paste a backup JSON here…" style="font-family: var(--mono); font-size: 11.5px;"></textarea>
+    <button type="button" class="btn-primary" style="width:100%; margin-top: 10px;" onclick="importJSON()">Restore from JSON (replaces current data)</button>
+
+    <div class="field-label" style="color: var(--danger);">Danger zone</div>
+    <button type="button" class="btn-secondary" style="width:100%; border-color: var(--danger); color: var(--danger);" onclick="clearAllData()">Clear all data</button>
   </div>
 </div>
 
