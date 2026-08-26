@@ -1,11 +1,172 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta http-equiv="refresh" content="0; url=workout-reference-guide.html"/>
-<title>Fitness HQ</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<script>window.location.href = 'workout-reference-guide.html';</script>
+
+<div class="sky">
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
+  <div class="orb orb-c"></div>
+  <div class="stars" id="stars"></div>
+  <div class="glints" id="glints"></div>
+</div>
+
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <div class="brand-eyebrow">Personal · Manually curated</div>
+      <h1 class="title">Studio Index</h1>
+    </div>
+    <div class="top-right">
+      <div class="top-meta" id="top-meta">Loading…</div>
+      <div class="day-night-toggle">
+        <button id="btn-day" onclick="setSky('day')" title="Daytime">☀︎</button>
+        <button id="btn-night" onclick="setSky('night')" title="Nighttime">☾</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= DECORATED VIEW ================= -->
+  <div id="decorated-view">
+    <div class="decorated-card">
+      <div class="dc-header">
+        <button class="dc-avatar" onclick="setMode('detailed')" title="Open detailed view">
+          <span>🍫</span><span class="crown">👑</span>
+        </button>
+        <div>
+          <h2>Leonna's Studio Index</h2>
+          <p>Pinned apps, projects, and running logs — tap the crown for the full ledger.</p>
+        </div>
+      </div>
+      <div class="dc-pins" id="dc-pins"><!-- populated --></div>
+      <div class="dc-foot">
+        <span id="dc-pin-count"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= DETAILED VIEW ================= -->
+  <div id="detailed-view">
+    <button class="back-to-decorated" onclick="setMode('decorated')">← Back to Studio Index</button>
+
+    <div class="stats" id="stats"><!-- populated --></div>
+
+    <div class="controls">
+      <div class="view-switch">
+        <button class="active" id="btn-view-grid" onclick="setView('grid')">Grouped grid</button>
+        <button id="btn-view-log" onclick="setView('log')">Flat log</button>
+      </div>
+      <button class="add-btn" onclick="openEntryModal()">+ New entry</button>
+    </div>
+
+    <div class="filters" id="filters"><!-- populated --></div>
+
+    <div class="type-legend">
+      <span><span class="type-pip app"></span>App/Site</span>
+      <span><span class="type-pip project"></span>Project</span>
+      <span><span class="type-pip note"></span>Future note</span>
+    </div>
+
+    <div id="grid-view"><!-- populated --></div>
+    <div id="log-view" class="log-view"><!-- populated --></div>
+  </div>
+
+  <footer class="site-foot">studio index — built with Claude</footer>
+</div>
+
+<!-- ================= ENTRY MODAL ================= -->
+<div class="modal-overlay" id="entry-modal-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeEntryModal()">✕</button>
+    <h3 id="entry-modal-title">New entry</h3>
+    <p class="hint">Pick a type first — it changes which fields apply.</p>
+
+    <div class="type-tabs" id="entry-type-tabs">
+      <div class="type-tab active" data-type="app"><span class="type-pip app"></span>App/Site</div>
+      <div class="type-tab" data-type="project"><span class="type-pip project"></span>Project</div>
+      <div class="type-tab" data-type="note"><span class="type-pip note"></span>Future note</div>
+    </div>
+
+    <form id="entry-form">
+      <div class="field">
+        <label>Title</label>
+        <input type="text" id="f-title" required placeholder="e.g. Fitness HQ">
+      </div>
+
+      <div class="field" id="f-url-field">
+        <label>URL</label>
+        <input type="url" id="f-url" placeholder="https://…">
+      </div>
+
+      <div class="field">
+        <label>Category</label>
+        <div class="category-row">
+          <select id="f-category"></select>
+          <button type="button" onclick="promptNewCategory()">+ New category</button>
+        </div>
+      </div>
+
+      <div class="field" id="f-status-field">
+        <label>Status</label>
+        <select id="f-status">
+          <option value="🟢 Live">🟢 Live</option>
+          <option value="🟡 In progress">🟡 In progress</option>
+          <option value="🟣 Stalled">🟣 Stalled</option>
+          <option value="🔵 Reference">🔵 Reference</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Description</label>
+        <textarea id="f-description" placeholder="Quick notes about what this is"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Tags (comma separated)</label>
+        <input type="text" id="f-tags" placeholder="workout, daily-use">
+      </div>
+
+      <label class="pin-toggle" id="f-pin-field">
+        <input type="checkbox" id="f-pinned">
+        Pin to Decorated view
+      </label>
+
+      <div id="f-custom-fields-section">
+        <div class="field-label">Custom fields</div>
+        <div id="custom-fields-list"></div>
+        <button type="button" class="add-field-btn" onclick="addCustomFieldRow()">+ Add custom field</button>
+      </div>
+
+      <div id="f-docs-section">
+        <div class="field-label">Linked docs &amp; files</div>
+        <div id="docs-list"></div>
+        <button type="button" class="add-field-btn" onclick="addDocRow()">+ Add linked doc / file</button>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="delete-entry" id="delete-entry-btn" onclick="deleteCurrentEntry()" style="display:none;">Delete entry</button>
+        <div class="right">
+          <button type="button" class="btn-secondary" onclick="closeEntryModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Save</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
