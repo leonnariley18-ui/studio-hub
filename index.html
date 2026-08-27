@@ -159,7 +159,10 @@
       </div>
 
       <div id="f-docs-section">
-        <div class="field-label">Linked docs &amp; files</div>
+        <div class="field-label">
+          Linked docs &amp; files
+          <button type="button" class="info-btn" onclick="openPreviewInfoModal()" title="What renders in-app vs. downloads">ⓘ</button>
+        </div>
         <div id="docs-list"></div>
         <button type="button" class="add-field-btn" onclick="addDocRow()">+ Add linked doc / file</button>
       </div>
@@ -204,6 +207,30 @@
         <button type="button" class="btn-secondary" onclick="hideClearDataWarning()">Cancel</button>
         <button type="button" class="btn-danger" onclick="clearAllData()">Yes, delete everything</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= PREVIEW INFO MODAL ================= -->
+<div class="modal-overlay" id="preview-info-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closePreviewInfoModal()">✕</button>
+    <h3>What renders where</h3>
+    <p class="hint">When you click a linked doc or uploaded file, here's what happens depending on its type.</p>
+
+    <div class="info-tier">
+      <div class="info-tier-label good">Opens in-app, matches day/night</div>
+      <p>Images (png, jpg, jpeg, gif, webp, svg), video (mp4, webm, mov), audio (mp3, wav, ogg), and text (txt, json, csv, md) — these render in our own themed viewer.</p>
+    </div>
+
+    <div class="info-tier">
+      <div class="info-tier-label warn">Opens in-app, but not themed</div>
+      <p>PDF and HTML (htm) open in a large in-dashboard viewer too, but the browser renders those itself with its own native look — we can't restyle that part to match the dashboard.</p>
+    </div>
+
+    <div class="info-tier">
+      <div class="info-tier-label neutral">Opens in a new tab / downloads</div>
+      <p>Anything else — Word docs, spreadsheets, slide decks, zip files, etc. — just opens or downloads normally, same as any link.</p>
     </div>
   </div>
 </div>

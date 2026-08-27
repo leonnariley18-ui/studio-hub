@@ -289,7 +289,26 @@ h1.title {
 .type-tab { font-family: var(--mono); font-size: 11.5px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); color: var(--sub); background: var(--paper-dim); cursor: pointer; display: flex; align-items: center; gap: 6px; }
 .type-tab.active { border-color: var(--accent); color: var(--ink); background: color-mix(in srgb, var(--accent) 12%, var(--paper)); }
 
-.field-label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--sub); margin: 16px 0 8px; }
+.field-label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--sub); margin: 16px 0 8px; display: flex; align-items: center; gap: 6px; }
+.info-btn {
+  font-family: var(--sans); font-size: 11px; width: 15px; height: 15px; line-height: 1;
+  border-radius: 50%; border: 1px solid var(--sub); color: var(--sub); background: none;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  text-transform: none; letter-spacing: normal;
+}
+.info-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.info-tier { margin-bottom: 16px; }
+.info-tier:last-child { margin-bottom: 0; }
+.info-tier-label { font-family: var(--mono); font-size: 11px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.info-tier-label::before { content: ''; width: 8px; height: 8px; border-radius: 50%; }
+.info-tier-label.good { color: var(--good); }
+.info-tier-label.good::before { background: var(--good); }
+.info-tier-label.warn { color: var(--warn); }
+.info-tier-label.warn::before { background: var(--warn); }
+.info-tier-label.neutral { color: var(--sub); }
+.info-tier-label.neutral::before { background: var(--sub); }
+.info-tier p { margin: 0; font-size: 12.5px; color: var(--sub); line-height: 1.55; }
 .field-label:first-of-type { margin-top: 0; }
 .field label { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--sub); margin-bottom: 4px; }
 .field { margin-bottom: 10px; }

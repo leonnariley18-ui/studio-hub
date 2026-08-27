@@ -377,6 +377,13 @@ function closeDocPreview() {
   document.getElementById('doc-preview-body').innerHTML = '';
 }
 
+function openPreviewInfoModal() {
+  document.getElementById('preview-info-overlay').classList.add('open');
+}
+function closePreviewInfoModal() {
+  document.getElementById('preview-info-overlay').classList.remove('open');
+}
+
 function formatMonthYear(str) {
   if (!str) return null;
   const [y, m] = str.split('-').map(Number);
@@ -777,7 +784,7 @@ Object.assign(window, {
   openEntryModal, closeEntryModal, promptNewCategory, addCustomFieldRow, addDocRow, deleteCurrentEntry,
   openBackupModal, closeBackupModal, exportJSON, importJSON, clearAllData,
   handleBackupFileChosen, showClearDataWarning, hideClearDataWarning, toggleLayoutEdit,
-  openDocPreview, closeDocPreview
+  openDocPreview, closeDocPreview, openPreviewInfoModal, closePreviewInfoModal
 });
 
 })();
