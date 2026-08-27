@@ -1,47 +1,38 @@
-# Fitness HQ 🦂
+# Studio Index
 
-Personal fitness reference system for Leonna — built and maintained with Claude.
+Leonna's personal dashboard for active apps, Claude projects, linked docs, and future-idea notes — manually curated, persisted in Supabase.
 
-## Reference Docs
+## Structure
 
-| File | Description |
-|------|-------------|
-| `workout-reference-guide.html` | Home page — warm-up quick ref, anchors, site directory |
-| `fitness-ecosystem-master-plan-v1.2.html` | Philosophy, long-term goals, rules, document map |
-| `calisthenics-master-plan-v2.0.html` | Push-up and pistol squat progressions — all 4 blocks each |
-| `fitness-nutrition-systems-v3.1.html` | Protein strategy and Smoothie Lab overview |
-| `warm-up-routines-v1.2.html` | SFB, Quick + LEG, Quick - LEG, cool-down stretches |
-| `yoga-strap-flexibility-routine.html` | 12-14 min flexibility routine |
-| `targeted-practice.html` | TP V1, V2, V3 — poses, focus areas, downloadable JSONs |
-| `checkin-summary.html` | Most recent check-in summary — updated every 2 weeks |
-| `yoga-app-ecosystem-master-plan-v5.1.html` | Shelved app plans — preserved for reference |
-| `index.html` | Redirects root URL to home page |
-| `404.html` | Custom not found page |
+| Path | What it is |
+|------|------------|
+| `index.html`, `app.js`, `styles.css` | The dashboard itself |
+| `config.js` | Supabase project URL + anon key |
+| `supabase-schema.sql` | One-time schema setup — run in the Supabase SQL editor |
+| `fitness-hq/` | The original Fitness HQ app suite (workout logger, yoga coach, meal plans, etc.), preserved as-is, linked from the dashboard |
 
-## Apps
+## One-time Supabase setup
 
-| File | Description |
-|------|-------------|
-| `smoothie-lab.html` | Interactive recipe tracker — ingredients, steps, batch log, ratings |
-| `workout-logger.html` | Log sessions — anchors, warm-up, duration, vibe, notes |
-| `check-in-app.html` | Bi-weekly check-in form — generates prompt for Claude chat |
+1. Open your Supabase project's SQL editor and run `supabase-schema.sql`. This creates a `studio_hub` schema with its own `categories`, `entries`, and `linked_docs` tables — isolated from any other app sharing this project (see `SUPABASE_MULTI_APP.md` for why that's safe).
+2. In **Settings → API → Data API → Exposed schemas**, add `studio_hub` to the list. The REST API only serves schemas listed there.
+3. That's it — `config.js` already points at your project.
 
-## PWA
+## Data model
 
-| File | Description |
-|------|-------------|
-| `manifest.json` | App identity, colors, icons — makes Fitness HQ installable |
-| `service-worker.js` | Offline caching — all pages work without internet |
-| `icons/icon-192.png` | Home screen icon |
-| `icons/icon-512.png` | Splash screen icon |
+Every entry is one of three types, each with a colored left rail on its card:
 
-## External
+- **App/Site** — something live with a URL and status
+- **Project** — a Claude canvas/spec, no live URL required
+- **Future note** — just title, description, and tags; a placeholder for later
 
-| Tool | Description |
-|------|-------------|
-| [App #1 — Yoga Flow Generator](https://claude.ai/public/artifacts/1e66e940-20b7-4680-ab36-11818b2a1efa) | AI yoga flow generation — lives in Claude |
-| [CC — Yoga Coaching Claude](https://claude.ai/project/019d7a5c-2499-72ed-856f-230dde6a70fa) | Struggle pose analysis and targeted practice generation |
-| [Fitness HQ Project Chat](https://claude.ai/project/019c1c3d-af09-739a-8569-5cf567652898) | Main project chat — updates, check-ins, bug fixes |
+Apps and Projects can carry any number of custom key/value fields (`stack`, `last commit`, `sync source` — whatever fits) and any number of linked docs/files (repo, design doc, canvas link), shown as chips on the card. Categories are created on the fly from the entry form — nothing is pre-seeded.
+
+## Views
+
+- **Decorated** (default landing) — pinned entries only, tap the 🍫👑 avatar for the full ledger
+- **Detailed** — grouped card grid or a flat chronological log, filterable by category
+
+Day/night is a manual toggle (top right), independent of system theme, and applies to both views.
 
 ## Live Site
-[leonnariley18-ui.github.io/fitness-hq](https://leonnariley18-ui.github.io/fitness-hq)
+[leonnariley18-ui.github.io/studio-hub](https://leonnariley18-ui.github.io/studio-hub)
