@@ -320,22 +320,61 @@ function docIcon(type) {
   return { doc: '📄', link: '🔗', canvas: '🎨', repo: '🔗', file: '📎' }[type] || '📄';
 }
 
-function isPreviewable(url) {
-  if (!url) return false;
+const PREVIEW_KINDS = {
+  pdf: 'iframe', html: 'iframe', htm: 'iframe',
+  png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', webp: 'image', svg: 'image',
+  mp4: 'video', webm: 'video', mov: 'video',
+  mp3: 'audio', wav: 'audio', ogg: 'audio',
+  txt: 'text', json: 'text', csv: 'text', md: 'text'
+};
+
+function previewKind(url) {
+  if (!url) return null;
   const clean = url.split('?')[0].split('#')[0].toLowerCase();
-  return clean.endsWith('.pdf') || clean.endsWith('.html') || clean.endsWith('.htm');
+  const ext = clean.split('.').pop();
+  return PREVIEW_KINDS[ext] || null;
 }
 
-function openDocPreview(title, url) {
+function isPreviewable(url) {
+  return previewKind(url) !== null;
+}
+
+// iframe is the fallback for PDF/HTML — the browser renders those itself,
+// with its own native chrome, which we can't restyle to match day/night.
+// Everything else gets built with our own themed markup so it actually
+// looks like part of the dashboard.
+async function openDocPreview(title, url) {
   document.getElementById('doc-preview-title').textContent = title;
-  document.getElementById('doc-preview-frame').src = url;
   document.getElementById('doc-preview-open-tab').href = url;
   document.getElementById('doc-preview-overlay').classList.add('open');
+
+  const kind = previewKind(url);
+  const body = document.getElementById('doc-preview-body');
+  body.innerHTML = '';
+
+  if (kind === 'image') {
+    body.innerHTML = `<div class="preview-media-pane"><img src="${url}" alt="${escapeAttr(title)}"></div>`;
+  } else if (kind === 'video') {
+    body.innerHTML = `<div class="preview-media-pane"><video src="${url}" controls autoplay></video></div>`;
+  } else if (kind === 'audio') {
+    body.innerHTML = `<div class="preview-media-pane preview-audio-pane"><audio src="${url}" controls autoplay></audio></div>`;
+  } else if (kind === 'text') {
+    body.innerHTML = `<pre class="preview-text">Loading…</pre>`;
+    try {
+      const res = await fetch(url);
+      const text = await res.text();
+      body.innerHTML = `<pre class="preview-text">${escapeHtml(text)}</pre>`;
+    } catch (e) {
+      body.innerHTML = `<pre class="preview-text">Could not load this file. Try "Open in new tab" instead.</pre>`;
+    }
+  } else {
+    body.innerHTML = `<iframe class="preview-frame" src="${url}" title="Document preview"></iframe>`;
+  }
 }
 
 function closeDocPreview() {
   document.getElementById('doc-preview-overlay').classList.remove('open');
-  document.getElementById('doc-preview-frame').src = 'about:blank';
+  document.getElementById('doc-preview-body').innerHTML = '';
 }
 
 function formatMonthYear(str) {
