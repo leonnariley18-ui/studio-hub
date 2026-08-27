@@ -18,13 +18,22 @@ create table if not exists studio_hub.entries (
   url text,
   category_id uuid references studio_hub.categories(id) on delete set null,
   status text,
+  start_date text, -- "YYYY-MM", optional
+  end_date text,   -- "YYYY-MM", optional
   tags text[] not null default '{}',
   custom_fields jsonb not null default '{}'::jsonb,
   pinned boolean not null default false,
   sort_order int not null default 0,
+  layout jsonb, -- {x, y, w, h} from the Decorated view's drag/resize layout
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Adds columns if this table already existed from an earlier run of this
+-- file, before these columns were introduced.
+alter table studio_hub.entries add column if not exists start_date text;
+alter table studio_hub.entries add column if not exists end_date text;
+alter table studio_hub.entries add column if not exists layout jsonb;
 
 create table if not exists studio_hub.linked_docs (
   id uuid primary key default gen_random_uuid(),

@@ -168,10 +168,15 @@ function renderStats() {
 }
 
 // ---------- Decorated view ----------
+let layoutGrid = null;
+let layoutEditMode = false;
+
 function renderDecorated() {
   const pins = entries.filter(e => e.pinned);
-  const container = document.getElementById('dc-pins');
+  const container = document.getElementById('dc-pins-grid');
   const countEl = document.getElementById('dc-pin-count');
+
+  if (layoutGrid) { layoutGrid.destroy(false); layoutGrid = null; }
 
   if (pins.length === 0) {
     container.innerHTML = `<div class="dc-empty">Nothing pinned yet. Open the full ledger and pin an entry to have it show up here.</div>`;
@@ -179,17 +184,54 @@ function renderDecorated() {
     return;
   }
 
-  container.innerHTML = pins.map(e => `
-    <a class="dc-pin" href="${e.url || '#'}" target="${e.url ? '_blank' : '_self'}" rel="noopener">
-      <span class="em">${e.custom_fields?.emoji || iconForType(e.entry_type)}</span>
-      <div class="info">
-        <div class="t">${escapeHtml(e.title)} <span class="pin-star">👑</span></div>
-        <div class="s">${TYPE_LABEL[e.entry_type]}${e.status ? ' · ' + e.status.replace(/^\S+\s/, '') : ''}</div>
+  container.innerHTML = pins.map(e => {
+    const l = e.layout || {};
+    return `
+    <div class="grid-stack-item" data-entry-id="${e.id}" gs-x="${l.x ?? ''}" gs-y="${l.y ?? ''}" gs-w="${l.w || 3}" gs-h="${l.h || 1}">
+      <div class="grid-stack-item-content">
+        <a class="dc-pin" href="${e.url || '#'}" target="${e.url ? '_blank' : '_self'}" rel="noopener">
+          <span class="em">${e.custom_fields?.emoji || iconForType(e.entry_type)}</span>
+          <div class="info">
+            <div class="t">${escapeHtml(e.title)} <span class="pin-star">👑</span></div>
+            <div class="s">${TYPE_LABEL[e.entry_type]}${e.status ? ' · ' + e.status.replace(/^\S+\s/, '') : ''}</div>
+          </div>
+          <span class="arrow">→</span>
+        </a>
       </div>
-      <span class="arrow">→</span>
-    </a>
-  `).join('');
+    </div>
+  `;
+  }).join('');
   countEl.textContent = `${pins.length} pinned of ${entries.length} total`;
+
+  if (window.GridStack) {
+    layoutGrid = GridStack.init({
+      column: 12,
+      cellHeight: 64,
+      margin: 6,
+      float: true,
+      staticGrid: !layoutEditMode
+    }, container);
+    layoutGrid.on('change', (ev, changedItems) => {
+      (changedItems || []).forEach(item => saveEntryLayout(item.el.dataset.entryId, item.x, item.y, item.w, item.h));
+    });
+  }
+}
+
+async function saveEntryLayout(entryId, x, y, w, h) {
+  if (!supabase || !entryId) return;
+  const entry = entries.find(e => e.id === entryId);
+  if (entry) entry.layout = { x, y, w, h };
+  await supabase.from('entries').update({ layout: { x, y, w, h } }).eq('id', entryId);
+}
+
+function toggleLayoutEdit() {
+  layoutEditMode = !layoutEditMode;
+  const btn = document.getElementById('layout-edit-toggle');
+  const container = document.getElementById('dc-pins-grid');
+  btn.classList.toggle('active', layoutEditMode);
+  btn.textContent = layoutEditMode ? '✓ Done arranging' : '🔧 Edit layout';
+  container.classList.toggle('edit-mode', layoutEditMode);
+  if (layoutGrid) layoutGrid.setStatic(!layoutEditMode);
 }
 
 function iconForType(t) { return t === 'note' ? '💡' : t === 'project' ? '🎨' : '🔗'; }
@@ -243,6 +285,7 @@ function cardHtml(e) {
   ).join('');
   const tagsHtml = (e.tags || []).map(t => `<span class="tag">#${escapeHtml(t)}</span>`).join('');
   const statusDot = e.status ? `<div class="status-dot ${STATUS_CLASS[e.status] || 'live'}" title="${escapeHtml(e.status)}"></div>` : '';
+  const dateRangeHtml = formatDateRange(e.start_date, e.end_date, e.entry_type === 'note');
 
   return `
     <div class="card ${e.entry_type === 'note' ? 'type-note' : ''}">
@@ -254,6 +297,7 @@ function cardHtml(e) {
         </div>
         ${statusDot}
       </div>
+      ${dateRangeHtml ? `<div class="card-daterange">${dateRangeHtml}</div>` : ''}
       ${e.custom_fields?.description ? `<div class="card-desc">${escapeHtml(e.custom_fields.description)}</div>` : ''}
       ${fieldsHtml ? `<div class="fields">${fieldsHtml}</div>` : ''}
       ${docsHtml ? `<div class="card-docs">${docsHtml}</div>` : ''}
@@ -267,6 +311,23 @@ function cardHtml(e) {
 
 function docIcon(type) {
   return { doc: '📄', link: '🔗', canvas: '🎨', repo: '🔗', file: '📎' }[type] || '📄';
+}
+
+function formatMonthYear(str) {
+  if (!str) return null;
+  const [y, m] = str.split('-').map(Number);
+  if (!y || !m) return null;
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+function formatDateRange(start, end, isProjected) {
+  const s = formatMonthYear(start);
+  const e = formatMonthYear(end);
+  if (!s && !e) return '';
+  const prefix = isProjected ? 'Projected: ' : '';
+  if (s && e) return `${prefix}${s} – ${e}`;
+  if (s) return `${prefix}${s} – present`;
+  return `${prefix}through ${e}`;
 }
 
 // ---------- Log view ----------
@@ -303,6 +364,8 @@ function setEntryType(type) {
   document.getElementById('f-pin-field').style.display = isNote ? 'none' : '';
   document.getElementById('f-docs-section').style.display = isNote ? 'none' : '';
   document.getElementById('f-custom-fields-section').style.display = isNote ? 'none' : '';
+  document.getElementById('f-start-date-label').textContent = isNote ? 'Projected start' : 'Start';
+  document.getElementById('f-end-date-label').textContent = isNote ? 'Projected end' : 'End';
 }
 
 function populateCategorySelect(selectedId) {
@@ -390,6 +453,8 @@ function openEntryModal(entryId) {
     populateCategorySelect(entry.category_id);
     document.getElementById('f-status').value = entry.status || '🟢 Live';
     document.getElementById('f-description').value = entry.custom_fields?.description || '';
+    document.getElementById('f-start-date').value = entry.start_date || '';
+    document.getElementById('f-end-date').value = entry.end_date || '';
     document.getElementById('f-tags').value = (entry.tags || []).join(', ');
     document.getElementById('f-pinned').checked = !!entry.pinned;
     Object.entries(entry.custom_fields || {}).forEach(([k, v]) => {
@@ -431,6 +496,8 @@ async function handleEntrySubmit(ev) {
     url: type === 'note' ? null : (document.getElementById('f-url').value.trim() || null),
     category_id: categoryId,
     status: type === 'note' ? null : document.getElementById('f-status').value,
+    start_date: document.getElementById('f-start-date').value || null,
+    end_date: document.getElementById('f-end-date').value || null,
     tags,
     custom_fields: customFields,
     pinned: type === 'note' ? false : document.getElementById('f-pinned').checked
@@ -533,9 +600,12 @@ function exportJSON() {
       url: e.url,
       category_name: e.category?.name || null,
       status: e.status,
+      start_date: e.start_date || null,
+      end_date: e.end_date || null,
       tags: e.tags || [],
       custom_fields: e.custom_fields || {},
       pinned: e.pinned,
+      layout: e.layout || null,
       linked_docs: (e.linked_docs || []).map(d => ({ title: d.title, url: d.url, doc_type: d.doc_type }))
     }))
   };
@@ -589,9 +659,12 @@ async function importJSON() {
       url: e.url || null,
       category_id: categoryId,
       status: e.status || null,
+      start_date: e.start_date || null,
+      end_date: e.end_date || null,
       tags: e.tags || [],
       custom_fields: e.custom_fields || {},
-      pinned: !!e.pinned
+      pinned: !!e.pinned,
+      layout: e.layout || null
     }).select().single();
     if (error || !newEntry) continue;
 
@@ -639,7 +712,7 @@ Object.assign(window, {
   setSky, setMode, setView, setCategoryFilter,
   openEntryModal, closeEntryModal, promptNewCategory, addCustomFieldRow, addDocRow, deleteCurrentEntry,
   openBackupModal, closeBackupModal, exportJSON, importJSON, clearAllData,
-  handleBackupFileChosen, showClearDataWarning, hideClearDataWarning
+  handleBackupFileChosen, showClearDataWarning, hideClearDataWarning, toggleLayoutEdit
 });
 
 })();
