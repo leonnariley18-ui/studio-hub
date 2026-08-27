@@ -266,7 +266,7 @@ function cardHtml(e) {
 }
 
 function docIcon(type) {
-  return { doc: '📄', link: '🔗', canvas: '🎨', repo: '🔗' }[type] || '📄';
+  return { doc: '📄', link: '🔗', canvas: '🎨', repo: '🔗', file: '📎' }[type] || '📄';
 }
 
 // ---------- Log view ----------
@@ -340,12 +340,31 @@ function addCustomFieldRow(key = '', value = '') {
 function addDocRow(title = '', url = '', docType = 'link') {
   const list = document.getElementById('docs-list');
   const row = document.createElement('div');
-  row.className = 'dyn-row doc-row';
+  row.className = 'doc-row-wrap';
+  const isFile = docType === 'file';
   row.innerHTML = `
-    <input type="text" class="doc-title" placeholder="e.g. GitHub repo" value="${escapeAttr(title)}">
-    <input type="url" class="doc-url" placeholder="https://…" value="${escapeAttr(url)}">
-    <button type="button" class="row-remove" onclick="this.closest('.dyn-row').remove()">×</button>
+    <div class="dyn-row doc-row">
+      <input type="text" class="doc-title" placeholder="e.g. GitHub repo" value="${escapeAttr(title)}">
+      <input type="url" class="doc-url" placeholder="https://…" value="${escapeAttr(isFile ? '' : url)}" ${isFile ? 'disabled' : ''}>
+      <button type="button" class="row-remove" onclick="this.closest('.doc-row-wrap').remove()">×</button>
+    </div>
+    <div class="doc-row-file">
+      <input type="file" class="doc-file-input">
+      <span class="doc-file-status">${isFile ? '📎 ' + escapeHtml(title || 'uploaded file') : ''}</span>
+    </div>
   `;
+  if (isFile) row.dataset.existingUrl = url;
+  const fileInput = row.querySelector('.doc-file-input');
+  const urlInput = row.querySelector('.doc-url');
+  const statusEl = row.querySelector('.doc-file-status');
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) {
+      urlInput.value = '';
+      urlInput.disabled = true;
+      statusEl.textContent = '📎 ' + fileInput.files[0].name + ' (will upload on save)';
+      delete row.dataset.existingUrl;
+    }
+  });
   list.appendChild(row);
 }
 
@@ -430,13 +449,26 @@ async function handleEntrySubmit(ev) {
   // Replace linked docs wholesale for simplicity.
   if (type !== 'note') {
     await supabase.from('linked_docs').delete().eq('entry_id', entryId);
-    const docRows = [...document.querySelectorAll('#docs-list .dyn-row')]
-      .map(row => ({
-        entry_id: entryId,
-        title: row.querySelector('.doc-title').value.trim(),
-        url: row.querySelector('.doc-url').value.trim()
-      }))
-      .filter(d => d.title && d.url);
+    const docRows = [];
+    for (const row of document.querySelectorAll('#docs-list .doc-row-wrap')) {
+      const title = row.querySelector('.doc-title').value.trim();
+      const file = row.querySelector('.doc-file-input').files[0];
+      let url = row.querySelector('.doc-url').value.trim();
+      let docType = 'link';
+
+      if (file) {
+        const path = `${entryId}/${Date.now()}-${file.name}`;
+        const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, file, { upsert: true });
+        if (upErr) { showToast('Upload failed for "' + file.name + '": ' + upErr.message); continue; }
+        url = supabase.storage.from('studio-hub-files').getPublicUrl(path).data.publicUrl;
+        docType = 'file';
+      } else if (row.dataset.existingUrl) {
+        url = row.dataset.existingUrl;
+        docType = 'file';
+      }
+
+      if (title && url) docRows.push({ entry_id: entryId, title, url, doc_type: docType });
+    }
     if (docRows.length > 0) {
       const { error: docErr } = await supabase.from('linked_docs').insert(docRows);
       if (docErr) showToast('Entry saved, but docs failed: ' + docErr.message);
@@ -464,9 +496,31 @@ async function deleteCurrentEntry() {
 // ================= BACKUP / RESTORE / CLEAR =================
 function openBackupModal() {
   document.getElementById('backup-modal-overlay').classList.add('open');
+  hideClearDataWarning();
 }
 function closeBackupModal() {
   document.getElementById('backup-modal-overlay').classList.remove('open');
+}
+
+function handleBackupFileChosen(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    document.getElementById('import-json-input').value = reader.result;
+    showToast('File loaded — click Restore to apply it');
+  };
+  reader.onerror = () => showToast('Could not read that file.');
+  reader.readAsText(file);
+}
+
+function showClearDataWarning() {
+  document.getElementById('clear-data-idle').style.display = 'none';
+  document.getElementById('clear-data-warning').style.display = '';
+}
+function hideClearDataWarning() {
+  document.getElementById('clear-data-idle').style.display = '';
+  document.getElementById('clear-data-warning').style.display = 'none';
 }
 
 function exportJSON() {
@@ -555,12 +609,11 @@ async function importJSON() {
 
 async function clearAllData() {
   if (!supabase) return showToast('Not connected to Supabase.');
-  if (!confirm('This permanently deletes every entry and category on this dashboard. This cannot be undone. Continue?')) return;
-  if (!confirm('Really clear everything? Consider downloading a backup first.')) return;
 
   await supabase.from('entries').delete().not('id', 'is', null);
   await supabase.from('categories').delete().not('id', 'is', null);
 
+  hideClearDataWarning();
   closeBackupModal();
   await loadAll();
   showToast('All data cleared');
@@ -585,7 +638,8 @@ function escapeAttr(str) { return escapeHtml(str); }
 Object.assign(window, {
   setSky, setMode, setView, setCategoryFilter,
   openEntryModal, closeEntryModal, promptNewCategory, addCustomFieldRow, addDocRow, deleteCurrentEntry,
-  openBackupModal, closeBackupModal, exportJSON, importJSON, clearAllData
+  openBackupModal, closeBackupModal, exportJSON, importJSON, clearAllData,
+  handleBackupFileChosen, showClearDataWarning, hideClearDataWarning
 });
 
 })();

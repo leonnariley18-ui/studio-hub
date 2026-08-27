@@ -23,7 +23,6 @@
 
   <header class="top">
     <div>
-      <div class="brand-eyebrow">Personal · Manually curated</div>
       <h1 class="title">Studio Index</h1>
     </div>
     <div class="top-right">
@@ -46,8 +45,8 @@
           <span>🍫</span><span class="crown">👑</span>
         </button>
         <div>
-          <h2>Leonna's Studio Index</h2>
-          <p>Pinned apps, projects, and running logs — tap the crown for the full ledger.</p>
+          <h2>Leonna's Shit</h2>
+          <p>Pinned apps, projects, and running logs.</p>
         </div>
       </div>
       <div class="dc-pins" id="dc-pins"><!-- populated --></div>
@@ -82,8 +81,6 @@
     <div id="grid-view"><!-- populated --></div>
     <div id="log-view" class="log-view"><!-- populated --></div>
   </div>
-
-  <footer class="site-foot">studio index — built with Claude</footer>
 </div>
 
 <!-- ================= ENTRY MODAL ================= -->
@@ -176,12 +173,23 @@
     <div class="field-label">Export</div>
     <button type="button" class="btn-primary" style="width:100%; margin-bottom: 18px;" onclick="exportJSON()">Download JSON backup</button>
 
-    <div class="field-label">Restore from JSON</div>
-    <textarea id="import-json-input" rows="5" placeholder="Paste a backup JSON here…" style="font-family: var(--mono); font-size: 11.5px;"></textarea>
-    <button type="button" class="btn-primary" style="width:100%; margin-top: 10px;" onclick="importJSON()">Restore from JSON (replaces current data)</button>
+    <div class="field-label">Restore from a backup file</div>
+    <input type="file" id="import-json-file" accept="application/json,.json" onchange="handleBackupFileChosen(event)">
+    <p class="hint" style="margin: 6px 0 0;">Pick the <span style="font-family: var(--mono);">.json</span> file you downloaded earlier. Or paste it directly:</p>
+    <textarea id="import-json-input" rows="4" placeholder="…or paste backup JSON here" style="font-family: var(--mono); font-size: 11.5px;"></textarea>
+    <button type="button" class="btn-primary" style="width:100%; margin-top: 10px;" onclick="importJSON()">Restore (replaces current data)</button>
 
     <div class="field-label" style="color: var(--danger);">Danger zone</div>
-    <button type="button" class="btn-secondary" style="width:100%; border-color: var(--danger); color: var(--danger);" onclick="clearAllData()">Clear all data</button>
+    <div id="clear-data-idle">
+      <button type="button" class="btn-secondary" style="width:100%; border-color: var(--danger); color: var(--danger);" onclick="showClearDataWarning()">Clear all data</button>
+    </div>
+    <div id="clear-data-warning" class="inline-warning" style="display:none;">
+      <p>This permanently deletes every entry and category. There's no undo — download a backup first if you're not sure.</p>
+      <div class="inline-warning-actions">
+        <button type="button" class="btn-secondary" onclick="hideClearDataWarning()">Cancel</button>
+        <button type="button" class="btn-danger" onclick="clearAllData()">Yes, delete everything</button>
+      </div>
+    </div>
   </div>
 </div>
 
