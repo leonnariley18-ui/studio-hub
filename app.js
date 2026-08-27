@@ -235,7 +235,7 @@ function toggleLayoutEdit() {
 
   closeBackupModal();
   setMode('decorated');
-  showToast(layoutEditMode ? 'Layout editing on — drag or resize your pins' : 'Layout locked');
+  showToast(layoutEditMode ? 'Layout editing on — drag or resize your pins (saves as you go)' : 'Layout locked — everything’s already saved');
 }
 
 function iconForType(t) { return t === 'note' ? '💡' : t === 'project' ? '🎨' : '🔗'; }
