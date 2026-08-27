@@ -284,9 +284,12 @@ function cardHtml(e) {
     .filter(([k]) => k !== 'emoji')
     .map(([k, v]) => `<div class="field-row"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(String(v))}</span></div>`)
     .join('');
-  const docsHtml = (e.linked_docs || []).map(d =>
-    `<a class="doc-chip" href="${d.url}" target="_blank" rel="noopener">${docIcon(d.doc_type)} ${escapeHtml(d.title)}</a>`
-  ).join('');
+  const docsHtml = (e.linked_docs || []).map(d => {
+    if (isPreviewable(d.url)) {
+      return `<button type="button" class="doc-chip" onclick="openDocPreview('${escapeAttr(d.title)}', '${escapeAttr(d.url)}')">${docIcon(d.doc_type)} ${escapeHtml(d.title)}</button>`;
+    }
+    return `<a class="doc-chip" href="${d.url}" target="_blank" rel="noopener">${docIcon(d.doc_type)} ${escapeHtml(d.title)}</a>`;
+  }).join('');
   const tagsHtml = (e.tags || []).map(t => `<span class="tag">#${escapeHtml(t)}</span>`).join('');
   const statusDot = e.status ? `<div class="status-dot ${STATUS_CLASS[e.status] || 'live'}" title="${escapeHtml(e.status)}"></div>` : '';
   const dateRangeHtml = formatDateRange(e.start_date, e.end_date, e.entry_type === 'note');
@@ -315,6 +318,24 @@ function cardHtml(e) {
 
 function docIcon(type) {
   return { doc: '📄', link: '🔗', canvas: '🎨', repo: '🔗', file: '📎' }[type] || '📄';
+}
+
+function isPreviewable(url) {
+  if (!url) return false;
+  const clean = url.split('?')[0].split('#')[0].toLowerCase();
+  return clean.endsWith('.pdf') || clean.endsWith('.html') || clean.endsWith('.htm');
+}
+
+function openDocPreview(title, url) {
+  document.getElementById('doc-preview-title').textContent = title;
+  document.getElementById('doc-preview-frame').src = url;
+  document.getElementById('doc-preview-open-tab').href = url;
+  document.getElementById('doc-preview-overlay').classList.add('open');
+}
+
+function closeDocPreview() {
+  document.getElementById('doc-preview-overlay').classList.remove('open');
+  document.getElementById('doc-preview-frame').src = 'about:blank';
 }
 
 function formatMonthYear(str) {
@@ -716,7 +737,8 @@ Object.assign(window, {
   setSky, setMode, setView, setCategoryFilter,
   openEntryModal, closeEntryModal, promptNewCategory, addCustomFieldRow, addDocRow, deleteCurrentEntry,
   openBackupModal, closeBackupModal, exportJSON, importJSON, clearAllData,
-  handleBackupFileChosen, showClearDataWarning, hideClearDataWarning, toggleLayoutEdit
+  handleBackupFileChosen, showClearDataWarning, hideClearDataWarning, toggleLayoutEdit,
+  openDocPreview, closeDocPreview
 });
 
 })();

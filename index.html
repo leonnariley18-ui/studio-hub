@@ -208,6 +208,20 @@
   </div>
 </div>
 
+<!-- ================= DOC PREVIEW MODAL ================= -->
+<div class="modal-overlay preview-overlay" id="doc-preview-overlay">
+  <div class="modal preview-modal">
+    <div class="preview-header">
+      <span id="doc-preview-title">Preview</span>
+      <div class="preview-header-actions">
+        <a id="doc-preview-open-tab" href="#" target="_blank" rel="noopener" class="preview-open-tab">Open in new tab ↗</a>
+        <button class="modal-close" onclick="closeDocPreview()">✕</button>
+      </div>
+    </div>
+    <iframe id="doc-preview-frame" class="preview-frame" src="about:blank" title="Document preview"></iframe>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
