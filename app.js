@@ -168,10 +168,15 @@ function renderStats() {
 }
 
 // ---------- Decorated view ----------
+let layoutGrid = null;
+let layoutEditMode = false;
+
 function renderDecorated() {
   const pins = entries.filter(e => e.pinned);
-  const container = document.getElementById('dc-pins');
+  const container = document.getElementById('dc-pins-grid');
   const countEl = document.getElementById('dc-pin-count');
+
+  if (layoutGrid) { layoutGrid.destroy(false); layoutGrid = null; }
 
   if (pins.length === 0) {
     container.innerHTML = `<div class="dc-empty">Nothing pinned yet. Open the full ledger and pin an entry to have it show up here.</div>`;
@@ -179,17 +184,58 @@ function renderDecorated() {
     return;
   }
 
-  container.innerHTML = pins.map(e => `
-    <a class="dc-pin" href="${e.url || '#'}" target="${e.url ? '_blank' : '_self'}" rel="noopener">
-      <span class="em">${e.custom_fields?.emoji || iconForType(e.entry_type)}</span>
-      <div class="info">
-        <div class="t">${escapeHtml(e.title)} <span class="pin-star">👑</span></div>
-        <div class="s">${TYPE_LABEL[e.entry_type]}${e.status ? ' · ' + e.status.replace(/^\S+\s/, '') : ''}</div>
+  container.innerHTML = pins.map(e => {
+    const l = e.layout || {};
+    return `
+    <div class="grid-stack-item" data-entry-id="${e.id}" gs-x="${l.x ?? ''}" gs-y="${l.y ?? ''}" gs-w="${l.w || 3}" gs-h="${l.h || 1}">
+      <div class="grid-stack-item-content">
+        <a class="dc-pin" href="${e.url || '#'}" target="${e.url ? '_blank' : '_self'}" rel="noopener">
+          <span class="em">${e.custom_fields?.emoji || iconForType(e.entry_type)}</span>
+          <div class="info">
+            <div class="t">${escapeHtml(e.title)} <span class="pin-star">👑</span></div>
+            <div class="s">${TYPE_LABEL[e.entry_type]}${e.status ? ' · ' + e.status.replace(/^\S+\s/, '') : ''}</div>
+          </div>
+          <span class="arrow">→</span>
+        </a>
       </div>
-      <span class="arrow">→</span>
-    </a>
-  `).join('');
+    </div>
+  `;
+  }).join('');
   countEl.textContent = `${pins.length} pinned of ${entries.length} total`;
+
+  if (window.GridStack) {
+    layoutGrid = GridStack.init({
+      column: 12,
+      cellHeight: 64,
+      margin: 6,
+      float: true,
+      staticGrid: !layoutEditMode
+    }, container);
+    layoutGrid.on('change', (ev, changedItems) => {
+      (changedItems || []).forEach(item => saveEntryLayout(item.el.dataset.entryId, item.x, item.y, item.w, item.h));
+    });
+  }
+}
+
+async function saveEntryLayout(entryId, x, y, w, h) {
+  if (!supabase || !entryId) return;
+  const entry = entries.find(e => e.id === entryId);
+  if (entry) entry.layout = { x, y, w, h };
+  await supabase.from('entries').update({ layout: { x, y, w, h } }).eq('id', entryId);
+}
+
+function toggleLayoutEdit() {
+  layoutEditMode = !layoutEditMode;
+  const btn = document.getElementById('layout-edit-toggle');
+  const container = document.getElementById('dc-pins-grid');
+  btn.classList.toggle('active', layoutEditMode);
+  btn.textContent = layoutEditMode ? '✓ Done arranging' : '🔧 Edit layout';
+  container.classList.toggle('edit-mode', layoutEditMode);
+  if (layoutGrid) layoutGrid.setStatic(!layoutEditMode);
+
+  closeBackupModal();
+  setMode('decorated');
+  showToast(layoutEditMode ? 'Layout editing on — drag or resize your pins (saves as you go)' : 'Layout locked — everything’s already saved');
 }
 
 function iconForType(t) { return t === 'note' ? '💡' : t === 'project' ? '🎨' : '🔗'; }
@@ -238,11 +284,15 @@ function cardHtml(e) {
     .filter(([k]) => k !== 'emoji')
     .map(([k, v]) => `<div class="field-row"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(String(v))}</span></div>`)
     .join('');
-  const docsHtml = (e.linked_docs || []).map(d =>
-    `<a class="doc-chip" href="${d.url}" target="_blank" rel="noopener">${docIcon(d.doc_type)} ${escapeHtml(d.title)}</a>`
-  ).join('');
+  const docsHtml = (e.linked_docs || []).map(d => {
+    if (isPreviewable(d.url)) {
+      return `<button type="button" class="doc-chip" onclick="openDocPreview('${escapeAttr(d.title)}', '${escapeAttr(d.url)}')">${docIcon(d.doc_type)} ${escapeHtml(d.title)}</button>`;
+    }
+    return `<a class="doc-chip" href="${d.url}" target="_blank" rel="noopener">${docIcon(d.doc_type)} ${escapeHtml(d.title)}</a>`;
+  }).join('');
   const tagsHtml = (e.tags || []).map(t => `<span class="tag">#${escapeHtml(t)}</span>`).join('');
   const statusDot = e.status ? `<div class="status-dot ${STATUS_CLASS[e.status] || 'live'}" title="${escapeHtml(e.status)}"></div>` : '';
+  const dateRangeHtml = formatDateRange(e.start_date, e.end_date, e.entry_type === 'note');
 
   return `
     <div class="card ${e.entry_type === 'note' ? 'type-note' : ''}">
@@ -254,6 +304,7 @@ function cardHtml(e) {
         </div>
         ${statusDot}
       </div>
+      ${dateRangeHtml ? `<div class="card-daterange">${dateRangeHtml}</div>` : ''}
       ${e.custom_fields?.description ? `<div class="card-desc">${escapeHtml(e.custom_fields.description)}</div>` : ''}
       ${fieldsHtml ? `<div class="fields">${fieldsHtml}</div>` : ''}
       ${docsHtml ? `<div class="card-docs">${docsHtml}</div>` : ''}
@@ -266,7 +317,88 @@ function cardHtml(e) {
 }
 
 function docIcon(type) {
-  return { doc: '📄', link: '🔗', canvas: '🎨', repo: '🔗' }[type] || '📄';
+  return { doc: '📄', link: '🔗', canvas: '🎨', repo: '🔗', file: '📎' }[type] || '📄';
+}
+
+const PREVIEW_KINDS = {
+  pdf: 'iframe', html: 'iframe', htm: 'iframe',
+  png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', webp: 'image', svg: 'image',
+  mp4: 'video', webm: 'video', mov: 'video',
+  mp3: 'audio', wav: 'audio', ogg: 'audio',
+  txt: 'text', json: 'text', csv: 'text', md: 'text'
+};
+
+function previewKind(url) {
+  if (!url) return null;
+  const clean = url.split('?')[0].split('#')[0].toLowerCase();
+  const ext = clean.split('.').pop();
+  return PREVIEW_KINDS[ext] || null;
+}
+
+function isPreviewable(url) {
+  return previewKind(url) !== null;
+}
+
+// iframe is the fallback for PDF/HTML — the browser renders those itself,
+// with its own native chrome, which we can't restyle to match day/night.
+// Everything else gets built with our own themed markup so it actually
+// looks like part of the dashboard.
+async function openDocPreview(title, url) {
+  document.getElementById('doc-preview-title').textContent = title;
+  document.getElementById('doc-preview-open-tab').href = url;
+  document.getElementById('doc-preview-overlay').classList.add('open');
+
+  const kind = previewKind(url);
+  const body = document.getElementById('doc-preview-body');
+  body.innerHTML = '';
+
+  if (kind === 'image') {
+    body.innerHTML = `<div class="preview-media-pane"><img src="${url}" alt="${escapeAttr(title)}"></div>`;
+  } else if (kind === 'video') {
+    body.innerHTML = `<div class="preview-media-pane"><video src="${url}" controls autoplay></video></div>`;
+  } else if (kind === 'audio') {
+    body.innerHTML = `<div class="preview-media-pane preview-audio-pane"><audio src="${url}" controls autoplay></audio></div>`;
+  } else if (kind === 'text') {
+    body.innerHTML = `<pre class="preview-text">Loading…</pre>`;
+    try {
+      const res = await fetch(url);
+      const text = await res.text();
+      body.innerHTML = `<pre class="preview-text">${escapeHtml(text)}</pre>`;
+    } catch (e) {
+      body.innerHTML = `<pre class="preview-text">Could not load this file. Try "Open in new tab" instead.</pre>`;
+    }
+  } else {
+    body.innerHTML = `<iframe class="preview-frame" src="${url}" title="Document preview"></iframe>`;
+  }
+}
+
+function closeDocPreview() {
+  document.getElementById('doc-preview-overlay').classList.remove('open');
+  document.getElementById('doc-preview-body').innerHTML = '';
+}
+
+function openPreviewInfoModal() {
+  document.getElementById('preview-info-overlay').classList.add('open');
+}
+function closePreviewInfoModal() {
+  document.getElementById('preview-info-overlay').classList.remove('open');
+}
+
+function formatMonthYear(str) {
+  if (!str) return null;
+  const [y, m] = str.split('-').map(Number);
+  if (!y || !m) return null;
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+function formatDateRange(start, end, isProjected) {
+  const s = formatMonthYear(start);
+  const e = formatMonthYear(end);
+  if (!s && !e) return '';
+  const prefix = isProjected ? 'Projected: ' : '';
+  if (s && e) return `${prefix}${s} – ${e}`;
+  if (s) return `${prefix}${s} – present`;
+  return `${prefix}through ${e}`;
 }
 
 // ---------- Log view ----------
@@ -303,6 +435,8 @@ function setEntryType(type) {
   document.getElementById('f-pin-field').style.display = isNote ? 'none' : '';
   document.getElementById('f-docs-section').style.display = isNote ? 'none' : '';
   document.getElementById('f-custom-fields-section').style.display = isNote ? 'none' : '';
+  document.getElementById('f-start-date-label').textContent = isNote ? 'Projected start' : 'Start';
+  document.getElementById('f-end-date-label').textContent = isNote ? 'Projected end' : 'End';
 }
 
 function populateCategorySelect(selectedId) {
@@ -340,12 +474,31 @@ function addCustomFieldRow(key = '', value = '') {
 function addDocRow(title = '', url = '', docType = 'link') {
   const list = document.getElementById('docs-list');
   const row = document.createElement('div');
-  row.className = 'dyn-row doc-row';
+  row.className = 'doc-row-wrap';
+  const isFile = docType === 'file';
   row.innerHTML = `
-    <input type="text" class="doc-title" placeholder="e.g. GitHub repo" value="${escapeAttr(title)}">
-    <input type="url" class="doc-url" placeholder="https://…" value="${escapeAttr(url)}">
-    <button type="button" class="row-remove" onclick="this.closest('.dyn-row').remove()">×</button>
+    <div class="dyn-row doc-row">
+      <input type="text" class="doc-title" placeholder="e.g. GitHub repo" value="${escapeAttr(title)}">
+      <input type="url" class="doc-url" placeholder="https://…" value="${escapeAttr(isFile ? '' : url)}" ${isFile ? 'disabled' : ''}>
+      <button type="button" class="row-remove" onclick="this.closest('.doc-row-wrap').remove()">×</button>
+    </div>
+    <div class="doc-row-file">
+      <input type="file" class="doc-file-input">
+      <span class="doc-file-status">${isFile ? '📎 ' + escapeHtml(title || 'uploaded file') : ''}</span>
+    </div>
   `;
+  if (isFile) row.dataset.existingUrl = url;
+  const fileInput = row.querySelector('.doc-file-input');
+  const urlInput = row.querySelector('.doc-url');
+  const statusEl = row.querySelector('.doc-file-status');
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) {
+      urlInput.value = '';
+      urlInput.disabled = true;
+      statusEl.textContent = '📎 ' + fileInput.files[0].name + ' (will upload on save)';
+      delete row.dataset.existingUrl;
+    }
+  });
   list.appendChild(row);
 }
 
@@ -371,6 +524,8 @@ function openEntryModal(entryId) {
     populateCategorySelect(entry.category_id);
     document.getElementById('f-status').value = entry.status || '🟢 Live';
     document.getElementById('f-description').value = entry.custom_fields?.description || '';
+    document.getElementById('f-start-date').value = entry.start_date || '';
+    document.getElementById('f-end-date').value = entry.end_date || '';
     document.getElementById('f-tags').value = (entry.tags || []).join(', ');
     document.getElementById('f-pinned').checked = !!entry.pinned;
     Object.entries(entry.custom_fields || {}).forEach(([k, v]) => {
@@ -412,6 +567,8 @@ async function handleEntrySubmit(ev) {
     url: type === 'note' ? null : (document.getElementById('f-url').value.trim() || null),
     category_id: categoryId,
     status: type === 'note' ? null : document.getElementById('f-status').value,
+    start_date: document.getElementById('f-start-date').value || null,
+    end_date: document.getElementById('f-end-date').value || null,
     tags,
     custom_fields: customFields,
     pinned: type === 'note' ? false : document.getElementById('f-pinned').checked
@@ -430,13 +587,26 @@ async function handleEntrySubmit(ev) {
   // Replace linked docs wholesale for simplicity.
   if (type !== 'note') {
     await supabase.from('linked_docs').delete().eq('entry_id', entryId);
-    const docRows = [...document.querySelectorAll('#docs-list .dyn-row')]
-      .map(row => ({
-        entry_id: entryId,
-        title: row.querySelector('.doc-title').value.trim(),
-        url: row.querySelector('.doc-url').value.trim()
-      }))
-      .filter(d => d.title && d.url);
+    const docRows = [];
+    for (const row of document.querySelectorAll('#docs-list .doc-row-wrap')) {
+      const title = row.querySelector('.doc-title').value.trim();
+      const file = row.querySelector('.doc-file-input').files[0];
+      let url = row.querySelector('.doc-url').value.trim();
+      let docType = 'link';
+
+      if (file) {
+        const path = `${entryId}/${Date.now()}-${file.name}`;
+        const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, file, { upsert: true });
+        if (upErr) { showToast('Upload failed for "' + file.name + '": ' + upErr.message); continue; }
+        url = supabase.storage.from('studio-hub-files').getPublicUrl(path).data.publicUrl;
+        docType = 'file';
+      } else if (row.dataset.existingUrl) {
+        url = row.dataset.existingUrl;
+        docType = 'file';
+      }
+
+      if (title && url) docRows.push({ entry_id: entryId, title, url, doc_type: docType });
+    }
     if (docRows.length > 0) {
       const { error: docErr } = await supabase.from('linked_docs').insert(docRows);
       if (docErr) showToast('Entry saved, but docs failed: ' + docErr.message);
@@ -464,9 +634,31 @@ async function deleteCurrentEntry() {
 // ================= BACKUP / RESTORE / CLEAR =================
 function openBackupModal() {
   document.getElementById('backup-modal-overlay').classList.add('open');
+  hideClearDataWarning();
 }
 function closeBackupModal() {
   document.getElementById('backup-modal-overlay').classList.remove('open');
+}
+
+function handleBackupFileChosen(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    document.getElementById('import-json-input').value = reader.result;
+    showToast('File loaded — click Restore to apply it');
+  };
+  reader.onerror = () => showToast('Could not read that file.');
+  reader.readAsText(file);
+}
+
+function showClearDataWarning() {
+  document.getElementById('clear-data-idle').style.display = 'none';
+  document.getElementById('clear-data-warning').style.display = '';
+}
+function hideClearDataWarning() {
+  document.getElementById('clear-data-idle').style.display = '';
+  document.getElementById('clear-data-warning').style.display = 'none';
 }
 
 function exportJSON() {
@@ -479,9 +671,12 @@ function exportJSON() {
       url: e.url,
       category_name: e.category?.name || null,
       status: e.status,
+      start_date: e.start_date || null,
+      end_date: e.end_date || null,
       tags: e.tags || [],
       custom_fields: e.custom_fields || {},
       pinned: e.pinned,
+      layout: e.layout || null,
       linked_docs: (e.linked_docs || []).map(d => ({ title: d.title, url: d.url, doc_type: d.doc_type }))
     }))
   };
@@ -535,9 +730,12 @@ async function importJSON() {
       url: e.url || null,
       category_id: categoryId,
       status: e.status || null,
+      start_date: e.start_date || null,
+      end_date: e.end_date || null,
       tags: e.tags || [],
       custom_fields: e.custom_fields || {},
-      pinned: !!e.pinned
+      pinned: !!e.pinned,
+      layout: e.layout || null
     }).select().single();
     if (error || !newEntry) continue;
 
@@ -555,12 +753,11 @@ async function importJSON() {
 
 async function clearAllData() {
   if (!supabase) return showToast('Not connected to Supabase.');
-  if (!confirm('This permanently deletes every entry and category on this dashboard. This cannot be undone. Continue?')) return;
-  if (!confirm('Really clear everything? Consider downloading a backup first.')) return;
 
   await supabase.from('entries').delete().not('id', 'is', null);
   await supabase.from('categories').delete().not('id', 'is', null);
 
+  hideClearDataWarning();
   closeBackupModal();
   await loadAll();
   showToast('All data cleared');
@@ -585,7 +782,9 @@ function escapeAttr(str) { return escapeHtml(str); }
 Object.assign(window, {
   setSky, setMode, setView, setCategoryFilter,
   openEntryModal, closeEntryModal, promptNewCategory, addCustomFieldRow, addDocRow, deleteCurrentEntry,
-  openBackupModal, closeBackupModal, exportJSON, importJSON, clearAllData
+  openBackupModal, closeBackupModal, exportJSON, importJSON, clearAllData,
+  handleBackupFileChosen, showClearDataWarning, hideClearDataWarning, toggleLayoutEdit,
+  openDocPreview, closeDocPreview, openPreviewInfoModal, closePreviewInfoModal
 });
 
 })();

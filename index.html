@@ -6,7 +6,8 @@
 <title>Studio Index</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Alex+Brush&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -23,7 +24,6 @@
 
   <header class="top">
     <div>
-      <div class="brand-eyebrow">Personal · Manually curated</div>
       <h1 class="title">Studio Index</h1>
     </div>
     <div class="top-right">
@@ -46,11 +46,11 @@
           <span>🍫</span><span class="crown">👑</span>
         </button>
         <div>
-          <h2>Leonna's Studio Index</h2>
-          <p>Pinned apps, projects, and running logs — tap the crown for the full ledger.</p>
+          <h2>Leonna's Shit</h2>
+          <p>Pinned apps, projects, and running logs.</p>
         </div>
       </div>
-      <div class="dc-pins" id="dc-pins"><!-- populated --></div>
+      <div class="grid-stack" id="dc-pins-grid"><!-- populated --></div>
       <div class="dc-foot">
         <span id="dc-pin-count"></span>
       </div>
@@ -82,8 +82,6 @@
     <div id="grid-view"><!-- populated --></div>
     <div id="log-view" class="log-view"><!-- populated --></div>
   </div>
-
-  <footer class="site-foot">studio index — built with Claude</footer>
 </div>
 
 <!-- ================= ENTRY MODAL ================= -->
@@ -128,6 +126,17 @@
         </select>
       </div>
 
+      <div class="field-row-pair">
+        <div class="field">
+          <label id="f-start-date-label">Start</label>
+          <input type="month" id="f-start-date">
+        </div>
+        <div class="field">
+          <label id="f-end-date-label">End</label>
+          <input type="month" id="f-end-date">
+        </div>
+      </div>
+
       <div class="field">
         <label>Description</label>
         <textarea id="f-description" placeholder="Quick notes about what this is"></textarea>
@@ -150,7 +159,10 @@
       </div>
 
       <div id="f-docs-section">
-        <div class="field-label">Linked docs &amp; files</div>
+        <div class="field-label">
+          Linked docs &amp; files
+          <button type="button" class="info-btn" onclick="openPreviewInfoModal()" title="What renders in-app vs. downloads">ⓘ</button>
+        </div>
         <div id="docs-list"></div>
         <button type="button" class="add-field-btn" onclick="addDocRow()">+ Add linked doc / file</button>
       </div>
@@ -173,21 +185,74 @@
     <h3>Backup &amp; restore</h3>
     <p class="hint">Export everything to a JSON file, restore from one, or wipe the dashboard clean.</p>
 
+    <div class="field-label">Decorated view layout</div>
+    <button type="button" class="btn-secondary layout-edit-toggle" style="width:100%; margin-bottom: 18px;" id="layout-edit-toggle" onclick="toggleLayoutEdit()">🔧 Edit layout</button>
+
     <div class="field-label">Export</div>
     <button type="button" class="btn-primary" style="width:100%; margin-bottom: 18px;" onclick="exportJSON()">Download JSON backup</button>
 
-    <div class="field-label">Restore from JSON</div>
-    <textarea id="import-json-input" rows="5" placeholder="Paste a backup JSON here…" style="font-family: var(--mono); font-size: 11.5px;"></textarea>
-    <button type="button" class="btn-primary" style="width:100%; margin-top: 10px;" onclick="importJSON()">Restore from JSON (replaces current data)</button>
+    <div class="field-label">Restore from a backup file</div>
+    <input type="file" id="import-json-file" accept="application/json,.json" onchange="handleBackupFileChosen(event)">
+    <p class="hint" style="margin: 6px 0 0;">Pick the <span style="font-family: var(--mono);">.json</span> file you downloaded earlier. Or paste it directly:</p>
+    <textarea id="import-json-input" rows="4" placeholder="…or paste backup JSON here" style="font-family: var(--mono); font-size: 11.5px;"></textarea>
+    <button type="button" class="btn-primary" style="width:100%; margin-top: 10px;" onclick="importJSON()">Restore (replaces current data)</button>
 
     <div class="field-label" style="color: var(--danger);">Danger zone</div>
-    <button type="button" class="btn-secondary" style="width:100%; border-color: var(--danger); color: var(--danger);" onclick="clearAllData()">Clear all data</button>
+    <div id="clear-data-idle">
+      <button type="button" class="btn-secondary" style="width:100%; border-color: var(--danger); color: var(--danger);" onclick="showClearDataWarning()">Clear all data</button>
+    </div>
+    <div id="clear-data-warning" class="inline-warning" style="display:none;">
+      <p>This permanently deletes every entry and category. There's no undo — download a backup first if you're not sure.</p>
+      <div class="inline-warning-actions">
+        <button type="button" class="btn-secondary" onclick="hideClearDataWarning()">Cancel</button>
+        <button type="button" class="btn-danger" onclick="clearAllData()">Yes, delete everything</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= PREVIEW INFO MODAL ================= -->
+<div class="modal-overlay" id="preview-info-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closePreviewInfoModal()">✕</button>
+    <h3>What renders where</h3>
+    <p class="hint">When you click a linked doc or uploaded file, here's what happens depending on its type.</p>
+
+    <div class="info-tier">
+      <div class="info-tier-label good">Opens in-app, matches day/night</div>
+      <p>Images (png, jpg, jpeg, gif, webp, svg), video (mp4, webm, mov), audio (mp3, wav, ogg), and text (txt, json, csv, md) — these render in our own themed viewer.</p>
+    </div>
+
+    <div class="info-tier">
+      <div class="info-tier-label warn">Opens in-app, but not themed</div>
+      <p>PDF and HTML (htm) open in a large in-dashboard viewer too, but the browser renders those itself with its own native look — we can't restyle that part to match the dashboard.</p>
+    </div>
+
+    <div class="info-tier">
+      <div class="info-tier-label neutral">Opens in a new tab / downloads</div>
+      <p>Anything else — Word docs, spreadsheets, slide decks, zip files, etc. — just opens or downloads normally, same as any link.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ================= DOC PREVIEW MODAL ================= -->
+<div class="modal-overlay preview-overlay" id="doc-preview-overlay">
+  <div class="modal preview-modal">
+    <div class="preview-header">
+      <span id="doc-preview-title">Preview</span>
+      <div class="preview-header-actions">
+        <a id="doc-preview-open-tab" href="#" target="_blank" rel="noopener" class="preview-open-tab">Open in new tab ↗</a>
+        <button class="modal-close" onclick="closeDocPreview()">✕</button>
+      </div>
+    </div>
+    <div id="doc-preview-body" class="preview-body"></div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 </body>
