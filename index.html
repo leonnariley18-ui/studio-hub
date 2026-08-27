@@ -53,7 +53,6 @@
       <div class="grid-stack" id="dc-pins-grid"><!-- populated --></div>
       <div class="dc-foot">
         <span id="dc-pin-count"></span>
-        <button class="layout-edit-toggle" id="layout-edit-toggle" onclick="toggleLayoutEdit()">🔧 Edit layout</button>
       </div>
     </div>
   </div>
@@ -182,6 +181,9 @@
     <button class="modal-close" onclick="closeBackupModal()">✕</button>
     <h3>Backup &amp; restore</h3>
     <p class="hint">Export everything to a JSON file, restore from one, or wipe the dashboard clean.</p>
+
+    <div class="field-label">Decorated view layout</div>
+    <button type="button" class="btn-secondary layout-edit-toggle" style="width:100%; margin-bottom: 18px;" id="layout-edit-toggle" onclick="toggleLayoutEdit()">🔧 Edit layout</button>
 
     <div class="field-label">Export</div>
     <button type="button" class="btn-primary" style="width:100%; margin-bottom: 18px;" onclick="exportJSON()">Download JSON backup</button>

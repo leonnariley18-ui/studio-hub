@@ -232,6 +232,10 @@ function toggleLayoutEdit() {
   btn.textContent = layoutEditMode ? '✓ Done arranging' : '🔧 Edit layout';
   container.classList.toggle('edit-mode', layoutEditMode);
   if (layoutGrid) layoutGrid.setStatic(!layoutEditMode);
+
+  closeBackupModal();
+  setMode('decorated');
+  showToast(layoutEditMode ? 'Layout editing on — drag or resize your pins' : 'Layout locked');
 }
 
 function iconForType(t) { return t === 'note' ? '💡' : t === 'project' ? '🎨' : '🔗'; }
