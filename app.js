@@ -1,4 +1,12 @@
 // ===== Studio Index — app logic =====
+// Wrapped in an IIFE with a load guard so this file is safe to execute more
+// than once on the same page (e.g. a stale cached duplicate <script> tag,
+// or a leftover service worker from the old site re-serving it) — without
+// this, a second execution throws "Identifier already declared" on the
+// `let`/`const` below and the whole page hangs on "Loading…".
+(function () {
+  if (window.__STUDIO_INDEX_LOADED__) return;
+  window.__STUDIO_INDEX_LOADED__ = true;
 
 const cfg = window.STUDIO_HUB_CONFIG;
 let supabase = null;
@@ -571,3 +579,13 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function escapeAttr(str) { return escapeHtml(str); }
+
+// Inline HTML attributes (onclick="...") in index.html and in strings
+// rendered here need these on window, since they're not module exports.
+Object.assign(window, {
+  setSky, setMode, setView, setCategoryFilter,
+  openEntryModal, closeEntryModal, promptNewCategory, addCustomFieldRow, addDocRow, deleteCurrentEntry,
+  openBackupModal, closeBackupModal, exportJSON, importJSON, clearAllData
+});
+
+})();
