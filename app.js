@@ -35,10 +35,49 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedMode = localStorage.getItem('studio_sky_mode') || 'day';
   setSky(savedMode);
   loadAll();
+  initTitleCarousel();
 
   document.getElementById('entry-form').addEventListener('submit', handleEntrySubmit);
   document.querySelectorAll('.type-tab').forEach(t => t.addEventListener('click', () => setEntryType(t.dataset.type)));
 });
+
+// ---------- Title font carousel: breathes between faces every minute ----------
+const TITLE_FONTS = ['font-italiana', 'font-allura', 'font-herrvon', 'font-josefin'];
+let currentTitleFont = 'font-italiana';
+
+function initTitleCarousel() {
+  const el = document.querySelector('h1.title');
+  if (!el) return;
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const BREATHE_MS = 1000;
+  const CYCLE_MS = 60000;
+
+  // Pick a random starting face (not necessarily Italiana) once the page has settled.
+  currentTitleFont = TITLE_FONTS[Math.floor(Math.random() * TITLE_FONTS.length)];
+  el.classList.remove('font-italiana');
+  el.classList.add(currentTitleFont);
+
+  setInterval(() => {
+    const options = TITLE_FONTS.filter(f => f !== currentTitleFont);
+    const next = options[Math.floor(Math.random() * options.length)];
+
+    if (reduceMotion) {
+      el.classList.remove(currentTitleFont);
+      el.classList.add(next);
+      currentTitleFont = next;
+      return;
+    }
+
+    el.classList.add('breathing');
+    setTimeout(() => {
+      el.classList.remove(currentTitleFont);
+      el.classList.add(next);
+      currentTitleFont = next;
+      el.classList.remove('breathing');
+    }, BREATHE_MS);
+  }, CYCLE_MS);
+}
 
 async function loadAll() {
   if (!supabase) {
