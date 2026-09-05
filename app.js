@@ -41,25 +41,45 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.type-tab').forEach(t => t.addEventListener('click', () => setEntryType(t.dataset.type)));
 });
 
-// ---------- Title font carousel: breathes between faces every minute ----------
-const TITLE_FONTS = ['font-italiana', 'font-allura', 'font-herrvon', 'font-josefin'];
+// ---------- Title font carousel: breathes between faces every 30s ----------
+// Each candidate is checked with the Font Loading API before it's allowed
+// into rotation — a font that fails to actually load in this visitor's
+// browser (blocked by an ad blocker, a flaky connection, etc.) gets
+// silently excluded instead of falling back to a generic cursive font.
+const TITLE_FONT_CANDIDATES = [
+  { cls: 'font-italiana', family: 'Italiana' },
+  { cls: 'font-allura', family: 'Allura' },
+  { cls: 'font-herrvon', family: 'Herr Von Muellerhoff' },
+  { cls: 'font-josefin', family: 'Josefin Sans' }
+];
 let currentTitleFont = 'font-italiana';
 
-function initTitleCarousel() {
+async function initTitleCarousel() {
   const el = document.querySelector('h1.title');
-  if (!el) return;
+  if (!el || !('fonts' in document)) return;
+
+  const checks = await Promise.all(TITLE_FONT_CANDIDATES.map(async f => {
+    try {
+      await document.fonts.load(`400 16px "${f.family}"`);
+    } catch (e) { /* fall through to the check below */ }
+    return document.fonts.check(`400 16px "${f.family}"`) ? f.cls : null;
+  }));
+  const verified = checks.filter(Boolean);
+
+  if (verified.length === 0) return; // keep whatever's already showing (font-italiana default)
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const BREATHE_MS = 1000;
-  const CYCLE_MS = 60000;
+  const CYCLE_MS = 30000;
 
-  // Pick a random starting face (not necessarily Italiana) once the page has settled.
-  currentTitleFont = TITLE_FONTS[Math.floor(Math.random() * TITLE_FONTS.length)];
-  el.classList.remove('font-italiana');
+  currentTitleFont = verified[Math.floor(Math.random() * verified.length)];
+  TITLE_FONT_CANDIDATES.forEach(f => el.classList.remove(f.cls));
   el.classList.add(currentTitleFont);
 
+  if (verified.length < 2) return; // nothing to alternate with
+
   setInterval(() => {
-    const options = TITLE_FONTS.filter(f => f !== currentTitleFont);
+    const options = verified.filter(f => f !== currentTitleFont);
     const next = options[Math.floor(Math.random() * options.length)];
 
     if (reduceMotion) {
