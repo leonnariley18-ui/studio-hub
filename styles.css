@@ -100,9 +100,9 @@ header.top {
 }
 .brand-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); margin-bottom: 6px; }
 h1.title {
-  font-family: 'Alex Brush', cursive; font-weight: 400;
-  font-size: clamp(56px, 8vw, 96px); letter-spacing: 0.01em; line-height: 1;
-  margin: 0; padding-bottom: 0.15em; text-wrap: balance;
+  font-family: 'Italiana', serif; font-weight: 400; text-transform: uppercase;
+  font-size: clamp(32px, 5vw, 52px); letter-spacing: 0.05em; line-height: 1.1;
+  margin: 0; padding-bottom: 0.1em; text-wrap: balance;
   background: linear-gradient(100deg, var(--ink) 30%, var(--accent) 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
