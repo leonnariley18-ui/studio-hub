@@ -24,6 +24,7 @@ let categories = [];   // [{id, name, sort_order}]
 let entries = [];      // [{...entry, category: {id,name}, linked_docs: [...]}]
 let currentView = 'grid';
 let activeCategoryFilter = null;
+let activeTagFilters = new Set();
 let editingEntryId = null;
 
 const STATUS_CLASS = { '🟢 Live': 'live', '🟡 In progress': 'progress', '🟣 Stalled': 'stalled', '🔵 Reference': 'ref' };
@@ -203,9 +204,20 @@ function setCategoryFilter(catId) {
   renderLog();
 }
 
+function setTagFilter(tag) {
+  if (activeTagFilters.has(tag)) activeTagFilters.delete(tag);
+  else activeTagFilters.add(tag);
+  renderFilters();
+  renderGrid();
+  renderLog();
+}
+
 function getFilteredEntries() {
-  if (!activeCategoryFilter) return entries;
-  return entries.filter(e => e.category_id === activeCategoryFilter);
+  return entries.filter(e => {
+    const matchesCategory = !activeCategoryFilter || e.category_id === activeCategoryFilter;
+    const matchesTags = activeTagFilters.size === 0 || (e.tags || []).some(t => activeTagFilters.has(t));
+    return matchesCategory && matchesTags;
+  });
 }
 
 // ---------- Top meta / stats ----------
@@ -302,12 +314,26 @@ function iconForType(t) { return t === 'note' ? '💡' : t === 'project' ? '🎨
 // ---------- Filters ----------
 function renderFilters() {
   const el = document.getElementById('filters');
-  if (categories.length === 0) { el.innerHTML = ''; return; }
-  const allChip = `<span class="chip ${!activeCategoryFilter ? 'on' : ''}" onclick="setCategoryFilter(null)">All</span>`;
-  const catChips = categories.map(c =>
-    `<span class="chip ${activeCategoryFilter === c.id ? 'on' : ''}" onclick="setCategoryFilter('${c.id}')">${escapeHtml(c.name)}</span>`
+  if (categories.length === 0) {
+    el.innerHTML = '';
+  } else {
+    const allChip = `<span class="chip ${!activeCategoryFilter ? 'on' : ''}" onclick="setCategoryFilter(null)">All</span>`;
+    const catChips = categories.map(c =>
+      `<span class="chip ${activeCategoryFilter === c.id ? 'on' : ''}" onclick="setCategoryFilter('${c.id}')">${escapeHtml(c.name)}</span>`
+    ).join('');
+    el.innerHTML = allChip + catChips;
+  }
+
+  renderTagFilters();
+}
+
+function renderTagFilters() {
+  const el = document.getElementById('tag-filters');
+  const allTags = [...new Set(entries.flatMap(e => e.tags || []))].sort();
+  if (allTags.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = allTags.map(t =>
+    `<span class="chip tag-chip ${activeTagFilters.has(t) ? 'on' : ''}" onclick="setTagFilter('${escapeAttr(t)}')">#${escapeHtml(t)}</span>`
   ).join('');
-  el.innerHTML = allChip + catChips;
 }
 
 // ---------- Grid view ----------
@@ -340,7 +366,7 @@ function renderGrid() {
 
 function cardHtml(e) {
   const fieldsHtml = Object.entries(e.custom_fields || {})
-    .filter(([k]) => k !== 'emoji')
+    .filter(([k]) => k !== 'emoji' && k !== 'description')
     .map(([k, v]) => `<div class="field-row"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(String(v))}</span></div>`)
     .join('');
   const docsHtml = (e.linked_docs || []).map(d => {
@@ -349,7 +375,7 @@ function cardHtml(e) {
     }
     return `<a class="doc-chip" href="${d.url}" target="_blank" rel="noopener">${docIcon(d.doc_type)} ${escapeHtml(d.title)}</a>`;
   }).join('');
-  const tagsHtml = (e.tags || []).map(t => `<span class="tag">#${escapeHtml(t)}</span>`).join('');
+  const tagsHtml = (e.tags || []).map(t => `<span class="tag" onclick="setTagFilter('${escapeAttr(t)}')">#${escapeHtml(t)}</span>`).join('');
   const statusDot = e.status ? `<div class="status-dot ${STATUS_CLASS[e.status] || 'live'}" title="${escapeHtml(e.status)}"></div>` : '';
   const dateRangeHtml = formatDateRange(e.start_date, e.end_date, e.entry_type === 'note');
 
@@ -552,6 +578,10 @@ function addDocRow(title = '', url = '', docType = 'link') {
   const statusEl = row.querySelector('.doc-file-status');
   fileInput.addEventListener('change', () => {
     if (fileInput.files[0]) {
+      const titleInput = row.querySelector('.doc-title');
+      if (!titleInput.value.trim()) {
+        titleInput.value = fileInput.files[0].name.replace(/\.[^/.]+$/, '');
+      }
       urlInput.value = '';
       urlInput.disabled = true;
       statusEl.textContent = '📎 ' + fileInput.files[0].name + ' (will upload on save)';
@@ -648,12 +678,13 @@ async function handleEntrySubmit(ev) {
     await supabase.from('linked_docs').delete().eq('entry_id', entryId);
     const docRows = [];
     for (const row of document.querySelectorAll('#docs-list .doc-row-wrap')) {
-      const title = row.querySelector('.doc-title').value.trim();
+      let title = row.querySelector('.doc-title').value.trim();
       const file = row.querySelector('.doc-file-input').files[0];
       let url = row.querySelector('.doc-url').value.trim();
       let docType = 'link';
 
       if (file) {
+        if (!title) title = file.name.replace(/\.[^/.]+$/, '');
         const path = `${entryId}/${Date.now()}-${file.name}`;
         const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, file, { upsert: true });
         if (upErr) { showToast('Upload failed for "' + file.name + '": ' + upErr.message); continue; }
@@ -664,7 +695,11 @@ async function handleEntrySubmit(ev) {
         docType = 'file';
       }
 
-      if (title && url) docRows.push({ entry_id: entryId, title, url, doc_type: docType });
+      if (!title || !url) {
+        if (title || url || file) showToast('Skipped a linked doc — needs both a title and a file or URL.');
+        continue;
+      }
+      docRows.push({ entry_id: entryId, title, url, doc_type: docType });
     }
     if (docRows.length > 0) {
       const { error: docErr } = await supabase.from('linked_docs').insert(docRows);
@@ -839,7 +874,7 @@ function escapeAttr(str) { return escapeHtml(str); }
 // Inline HTML attributes (onclick="...") in index.html and in strings
 // rendered here need these on window, since they're not module exports.
 Object.assign(window, {
-  setSky, setMode, setView, setCategoryFilter,
+  setSky, setMode, setView, setCategoryFilter, setTagFilter,
   openEntryModal, closeEntryModal, promptNewCategory, addCustomFieldRow, addDocRow, deleteCurrentEntry,
   openBackupModal, closeBackupModal, exportJSON, importJSON, clearAllData,
   handleBackupFileChosen, showClearDataWarning, hideClearDataWarning, toggleLayoutEdit,
