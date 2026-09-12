@@ -461,15 +461,21 @@ function resolveContentType(file) {
 }
 
 // supabase-js's upload() only honors the `contentType` option for
-// non-Blob bodies (ArrayBuffer, string, streams) — a browser File object
-// IS a Blob, so that branch is skipped entirely and the library instead
-// relies on the File's own native .type when it builds the multipart
-// upload body. Passing `contentType` as an option therefore did nothing;
-// the fix is to rebuild the File itself with the type forced onto it.
-function withResolvedType(file) {
-  const type = resolveContentType(file);
-  if (file.type === type) return file;
-  return new File([file], file.name, { type, lastModified: file.lastModified });
+// non-Blob request bodies (ArrayBuffer, string, streams) — a browser File
+// object is itself a Blob, so passing one takes a completely different
+// path that relies on the File's own native .type, and `contentType` as
+// an option is silently ignored. Confirmed live: even after forcing the
+// File's own .type, the server still served the upload as text/plain.
+// The fix that actually works, matching Supabase's own documented
+// pattern: read the file into raw bytes first, so it's neither a File
+// nor a Blob, which forces the library into the branch that puts our
+// contentType directly on the request header.
+async function uploadFile(bucket, path, file, extraOptions = {}) {
+  const buffer = await file.arrayBuffer();
+  return supabase.storage.from(bucket).upload(path, buffer, {
+    ...extraOptions,
+    contentType: resolveContentType(file)
+  });
 }
 
 function previewKind(url) {
@@ -834,7 +840,7 @@ async function handleEntrySubmit(ev) {
 
   if (pendingLogoFile) {
     const path = `logos/${entryId}/${Date.now()}-${pendingLogoFile.name}`;
-    const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, withResolvedType(pendingLogoFile), { upsert: true });
+    const { error: upErr } = await uploadFile('studio-hub-files', path, pendingLogoFile, { upsert: true });
     if (upErr) {
       showToast('Entry saved, but logo upload failed: ' + upErr.message);
     } else {
@@ -856,7 +862,7 @@ async function handleEntrySubmit(ev) {
       if (file) {
         if (!title) title = file.name.replace(/\.[^/.]+$/, '');
         const path = `${entryId}/${Date.now()}-${file.name}`;
-        const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, withResolvedType(file), { upsert: true });
+        const { error: upErr } = await uploadFile('studio-hub-files', path, file, { upsert: true });
         if (upErr) { showToast('Upload failed for "' + file.name + '": ' + upErr.message); continue; }
         url = supabase.storage.from('studio-hub-files').getPublicUrl(path).data.publicUrl;
         docType = 'file';
