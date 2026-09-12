@@ -262,7 +262,7 @@ function renderDecorated() {
     return `
     <div class="grid-stack-item" data-entry-id="${e.id}" gs-x="${l.x ?? ''}" gs-y="${l.y ?? ''}" gs-w="${l.w || 3}" gs-h="${l.h || 1}">
       <div class="grid-stack-item-content">
-        <a class="dc-pin" href="${e.url || '#'}" target="${e.url ? '_blank' : '_self'}" rel="noopener">
+        <a class="dc-pin" href="${e.url || 'javascript:void(0)'}" ${e.url ? 'target="_blank" rel="noopener"' : ''} onclick="handlePinClick(event, '${e.id}')">
           ${e.logo_url ? `<img class="pin-logo" src="${e.logo_url}" alt="">` : `<span class="em">${e.custom_fields?.emoji || iconForType(e.entry_type)}</span>`}
           <div class="info">
             <div class="t">${escapeHtml(e.title)} <span class="pin-star">👑</span></div>
@@ -312,6 +312,26 @@ function toggleLayoutEdit() {
 }
 
 function iconForType(t) { return t === 'note' ? '💡' : t === 'project' ? '🎨' : '🔗'; }
+
+// A pinned entry with no URL used to be a dead link (href="#"). Now it
+// falls back to previewing/opening its first linked doc, or — if it has
+// neither — tells you so with a toast instead of doing nothing. Never
+// jumps into editing from the Decorated (home) view.
+function handlePinClick(ev, entryId) {
+  const entry = entries.find(x => x.id === entryId);
+  if (entry && entry.url) return; // real URL: let the normal link/new-tab behavior happen
+  ev.preventDefault();
+  if (!entry) return;
+
+  const firstDoc = (entry.linked_docs || [])[0];
+  if (firstDoc) {
+    if (isPreviewable(firstDoc.url)) openDocPreview(firstDoc.title, firstDoc.url);
+    else window.open(firstDoc.url, '_blank', 'noopener');
+    return;
+  }
+
+  showToast('No link or doc on this entry yet — add one from the full ledger.');
+}
 
 // ---------- Filters ----------
 function renderFilters() {
@@ -415,6 +435,24 @@ const PREVIEW_KINDS = {
   mp3: 'audio', wav: 'audio', ogg: 'audio',
   txt: 'text', json: 'text', csv: 'text', md: 'text'
 };
+
+// Some browsers/OSes report an empty File.type for less common extensions,
+// which made every upload default to Supabase Storage's own fallback of
+// text/plain — the exact bug that made uploaded HTML render as raw code
+// instead of a page. Always resolve a real content type before uploading.
+const EXTENSION_MIME = {
+  html: 'text/html', htm: 'text/html', pdf: 'application/pdf',
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+  mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+  mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg',
+  txt: 'text/plain', json: 'application/json', csv: 'text/csv', md: 'text/markdown'
+};
+
+function resolveContentType(file) {
+  if (file.type) return file.type;
+  const ext = file.name.split('.').pop().toLowerCase();
+  return EXTENSION_MIME[ext] || 'application/octet-stream';
+}
 
 function previewKind(url) {
   if (!url) return null;
@@ -778,7 +816,10 @@ async function handleEntrySubmit(ev) {
 
   if (pendingLogoFile) {
     const path = `logos/${entryId}/${Date.now()}-${pendingLogoFile.name}`;
-    const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, pendingLogoFile, { upsert: true });
+    const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, pendingLogoFile, {
+      upsert: true,
+      contentType: resolveContentType(pendingLogoFile)
+    });
     if (upErr) {
       showToast('Entry saved, but logo upload failed: ' + upErr.message);
     } else {
@@ -800,7 +841,10 @@ async function handleEntrySubmit(ev) {
       if (file) {
         if (!title) title = file.name.replace(/\.[^/.]+$/, '');
         const path = `${entryId}/${Date.now()}-${file.name}`;
-        const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, file, { upsert: true });
+        const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, file, {
+          upsert: true,
+          contentType: resolveContentType(file)
+        });
         if (upErr) { showToast('Upload failed for "' + file.name + '": ' + upErr.message); continue; }
         url = supabase.storage.from('studio-hub-files').getPublicUrl(path).data.publicUrl;
         docType = 'file';
@@ -1012,7 +1056,8 @@ Object.assign(window, {
   handleBackupFileChosen, showClearDataWarning, hideClearDataWarning, toggleLayoutEdit,
   openDocPreview, closeDocPreview, openPreviewInfoModal, closePreviewInfoModal,
   handleLogoFileChosen, removeLogo,
-  closeConfirmModal, confirmModalConfirmed, closeCategoryModal, submitNewCategory
+  closeConfirmModal, confirmModalConfirmed, closeCategoryModal, submitNewCategory,
+  handlePinClick
 });
 
 })();
