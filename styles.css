@@ -251,6 +251,9 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
 .log-row .main strong { font-weight: 600; }
 .log-row .main span.desc { color: var(--sub); font-size: 12px; margin-left: 8px; }
 .log-row .badge { font-family: var(--mono); font-size: 10.5px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.log-row-end { display: flex; align-items: center; gap: 10px; }
+.log-edit-btn { font-family: var(--mono); font-size: 10.5px; color: var(--sub); background: none; border: none; cursor: pointer; padding: 0; }
+.log-edit-btn:hover { color: var(--accent); }
 .badge.live { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
 .badge.progress { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
 .badge.stalled { background: color-mix(in srgb, var(--stall) 18%, transparent); color: var(--stall); }
@@ -264,6 +267,9 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
 .modal-overlay { position: fixed; inset: 0; background: rgba(10,8,14,.55); backdrop-filter: blur(3px); z-index: 50; display: none; align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto; }
 .modal-overlay.open { display: flex; }
 .modal { width: 100%; max-width: 620px; background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: 28px; position: relative; box-shadow: 0 30px 70px rgba(0,0,0,.35); }
+.confirm-modal { max-width: 380px; }
+.confirm-modal h3 { margin-bottom: 10px; }
+.confirm-modal .field { margin-top: 4px; }
 .modal-close { position: absolute; top: 18px; right: 18px; background: none; border: none; color: var(--sub); font-size: 18px; cursor: pointer; }
 .modal-close:hover { color: var(--ink); }
 

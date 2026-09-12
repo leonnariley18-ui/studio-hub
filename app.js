@@ -465,6 +465,30 @@ function closeDocPreview() {
   document.getElementById('doc-preview-body').innerHTML = '';
 }
 
+// ---------- Generic confirm modal (replaces window.confirm) ----------
+let confirmModalCallback = null;
+
+function showConfirmModal({ title, message, confirmLabel = 'Confirm', danger = false, onConfirm }) {
+  document.getElementById('confirm-modal-title').textContent = title;
+  document.getElementById('confirm-modal-message').textContent = message;
+  const btn = document.getElementById('confirm-modal-confirm-btn');
+  btn.textContent = confirmLabel;
+  btn.className = danger ? 'btn-danger' : 'btn-primary';
+  confirmModalCallback = onConfirm;
+  document.getElementById('confirm-modal-overlay').classList.add('open');
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirm-modal-overlay').classList.remove('open');
+  confirmModalCallback = null;
+}
+
+function confirmModalConfirmed() {
+  const cb = confirmModalCallback;
+  closeConfirmModal();
+  if (cb) cb();
+}
+
 function openPreviewInfoModal() {
   document.getElementById('preview-info-overlay').classList.add('open');
 }
@@ -508,7 +532,10 @@ function renderLog() {
         <div class="date">${dateStr}</div>
         <div class="type-pip ${e.entry_type}" title="${TYPE_LABEL[e.entry_type]}"></div>
         <div class="main"><strong>${escapeHtml(e.title)}</strong>${e.custom_fields?.description ? `<span class="desc">${escapeHtml(e.custom_fields.description)}</span>` : ''}</div>
-        ${statusLabel ? `<div class="badge ${statusClass}">${escapeHtml(statusLabel)}</div>` : ''}
+        <div class="log-row-end">
+          ${statusLabel ? `<div class="badge ${statusClass}">${escapeHtml(statusLabel)}</div>` : ''}
+          <button class="log-edit-btn" onclick="openEntryModal('${e.id}')">Edit</button>
+        </div>
       </div>
     `;
   }).join('');
@@ -535,16 +562,27 @@ function populateCategorySelect(selectedId) {
   if (selectedId) sel.value = selectedId;
 }
 
-async function promptNewCategory() {
+function promptNewCategory() {
   if (!supabase) return showToast('Not connected to Supabase.');
-  const name = prompt('New category name:');
-  if (!name || !name.trim()) return;
-  const { data, error } = await supabase.from('categories').insert({ name: name.trim(), sort_order: categories.length }).select().single();
+  document.getElementById('new-category-name').value = '';
+  document.getElementById('category-modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('new-category-name').focus(), 50);
+}
+
+function closeCategoryModal() {
+  document.getElementById('category-modal-overlay').classList.remove('open');
+}
+
+async function submitNewCategory() {
+  const name = document.getElementById('new-category-name').value.trim();
+  if (!name) return;
+  const { data, error } = await supabase.from('categories').insert({ name, sort_order: categories.length }).select().single();
   if (error) return showToast('Could not add category: ' + error.message);
   categories.push(data);
   categories.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
   populateCategorySelect(data.id);
   renderFilters();
+  closeCategoryModal();
   showToast('Category added');
 }
 
@@ -789,16 +827,24 @@ async function handleEntrySubmit(ev) {
   showToast(editingEntryId ? 'Entry updated' : 'Entry added');
 }
 
-async function deleteCurrentEntry() {
+function deleteCurrentEntry() {
   if (!supabase) return showToast('Not connected to Supabase.');
   if (!editingEntryId) return;
-  if (!confirm('Delete this entry? This cannot be undone.')) return;
-  const { error } = await supabase.from('entries').delete().eq('id', editingEntryId);
-  if (error) return showToast('Delete failed: ' + error.message);
-  closeEntryModal();
-  await loadEntries();
-  renderAll();
-  showToast('Entry deleted');
+  const entryId = editingEntryId;
+  showConfirmModal({
+    title: 'Delete entry?',
+    message: 'This cannot be undone.',
+    confirmLabel: 'Delete',
+    danger: true,
+    onConfirm: async () => {
+      const { error } = await supabase.from('entries').delete().eq('id', entryId);
+      if (error) return showToast('Delete failed: ' + error.message);
+      closeEntryModal();
+      await loadEntries();
+      renderAll();
+      showToast('Entry deleted');
+    }
+  });
 }
 
 // ================= BACKUP / RESTORE / CLEAR =================
@@ -863,7 +909,7 @@ function exportJSON() {
   showToast('Backup downloaded');
 }
 
-async function importJSON() {
+function importJSON() {
   if (!supabase) return showToast('Not connected to Supabase.');
   const raw = document.getElementById('import-json-input').value.trim();
   if (!raw) return showToast('Paste a backup JSON first.');
@@ -876,8 +922,16 @@ async function importJSON() {
   }
   if (!Array.isArray(parsed.entries)) return showToast('Invalid backup: missing "entries" array.');
 
-  if (!confirm('This replaces everything currently on the dashboard with the backup. Continue?')) return;
+  showConfirmModal({
+    title: 'Restore this backup?',
+    message: 'This replaces everything currently on the dashboard.',
+    confirmLabel: 'Restore',
+    danger: true,
+    onConfirm: () => performImportJSON(parsed)
+  });
+}
 
+async function performImportJSON(parsed) {
   showToast('Restoring…');
 
   // Wipe current data (linked_docs cascades from entries).
@@ -957,7 +1011,8 @@ Object.assign(window, {
   openBackupModal, closeBackupModal, exportJSON, importJSON, clearAllData,
   handleBackupFileChosen, showClearDataWarning, hideClearDataWarning, toggleLayoutEdit,
   openDocPreview, closeDocPreview, openPreviewInfoModal, closePreviewInfoModal,
-  handleLogoFileChosen, removeLogo
+  handleLogoFileChosen, removeLogo,
+  closeConfirmModal, confirmModalConfirmed, closeCategoryModal, submitNewCategory
 });
 
 })();

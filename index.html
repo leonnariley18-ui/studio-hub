@@ -226,6 +226,37 @@
   </div>
 </div>
 
+<!-- ================= GENERIC CONFIRM MODAL ================= -->
+<div class="modal-overlay" id="confirm-modal-overlay">
+  <div class="modal confirm-modal">
+    <h3 id="confirm-modal-title">Are you sure?</h3>
+    <p id="confirm-modal-message" class="hint"></p>
+    <div class="modal-actions">
+      <div class="right" style="width:100%; justify-content:flex-end;">
+        <button type="button" class="btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+        <button type="button" id="confirm-modal-confirm-btn" class="btn-danger" onclick="confirmModalConfirmed()">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= NEW CATEGORY MODAL ================= -->
+<div class="modal-overlay" id="category-modal-overlay">
+  <div class="modal confirm-modal">
+    <h3>New category</h3>
+    <div class="field">
+      <label>Category name</label>
+      <input type="text" id="new-category-name" placeholder="e.g. Finance" onkeydown="if(event.key==='Enter'){event.preventDefault();submitNewCategory();}">
+    </div>
+    <div class="modal-actions">
+      <div class="right" style="width:100%; justify-content:flex-end;">
+        <button type="button" class="btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+        <button type="button" class="btn-primary" onclick="submitNewCategory()">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ================= PREVIEW INFO MODAL ================= -->
 <div class="modal-overlay" id="preview-info-overlay">
   <div class="modal">
