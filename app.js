@@ -416,6 +416,24 @@ const PREVIEW_KINDS = {
   txt: 'text', json: 'text', csv: 'text', md: 'text'
 };
 
+// Some browsers/OSes report an empty File.type for less common extensions,
+// which made every upload default to Supabase Storage's own fallback of
+// text/plain — the exact bug that made uploaded HTML render as raw code
+// instead of a page. Always resolve a real content type before uploading.
+const EXTENSION_MIME = {
+  html: 'text/html', htm: 'text/html', pdf: 'application/pdf',
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+  mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+  mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg',
+  txt: 'text/plain', json: 'application/json', csv: 'text/csv', md: 'text/markdown'
+};
+
+function resolveContentType(file) {
+  if (file.type) return file.type;
+  const ext = file.name.split('.').pop().toLowerCase();
+  return EXTENSION_MIME[ext] || 'application/octet-stream';
+}
+
 function previewKind(url) {
   if (!url) return null;
   const clean = url.split('?')[0].split('#')[0].toLowerCase();
@@ -778,7 +796,10 @@ async function handleEntrySubmit(ev) {
 
   if (pendingLogoFile) {
     const path = `logos/${entryId}/${Date.now()}-${pendingLogoFile.name}`;
-    const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, pendingLogoFile, { upsert: true });
+    const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, pendingLogoFile, {
+      upsert: true,
+      contentType: resolveContentType(pendingLogoFile)
+    });
     if (upErr) {
       showToast('Entry saved, but logo upload failed: ' + upErr.message);
     } else {
@@ -800,7 +821,10 @@ async function handleEntrySubmit(ev) {
       if (file) {
         if (!title) title = file.name.replace(/\.[^/.]+$/, '');
         const path = `${entryId}/${Date.now()}-${file.name}`;
-        const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, file, { upsert: true });
+        const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, file, {
+          upsert: true,
+          contentType: resolveContentType(file)
+        });
         if (upErr) { showToast('Upload failed for "' + file.name + '": ' + upErr.message); continue; }
         url = supabase.storage.from('studio-hub-files').getPublicUrl(path).data.publicUrl;
         docType = 'file';
