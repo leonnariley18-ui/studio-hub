@@ -262,7 +262,7 @@ function renderDecorated() {
     return `
     <div class="grid-stack-item" data-entry-id="${e.id}" gs-x="${l.x ?? ''}" gs-y="${l.y ?? ''}" gs-w="${l.w || 3}" gs-h="${l.h || 1}">
       <div class="grid-stack-item-content">
-        <a class="dc-pin" href="${e.url || '#'}" target="${e.url ? '_blank' : '_self'}" rel="noopener">
+        <a class="dc-pin" href="${e.url || 'javascript:void(0)'}" ${e.url ? 'target="_blank" rel="noopener"' : ''} onclick="handlePinClick(event, '${e.id}')">
           ${e.logo_url ? `<img class="pin-logo" src="${e.logo_url}" alt="">` : `<span class="em">${e.custom_fields?.emoji || iconForType(e.entry_type)}</span>`}
           <div class="info">
             <div class="t">${escapeHtml(e.title)} <span class="pin-star">👑</span></div>
@@ -312,6 +312,27 @@ function toggleLayoutEdit() {
 }
 
 function iconForType(t) { return t === 'note' ? '💡' : t === 'project' ? '🎨' : '🔗'; }
+
+// A pinned entry with no URL used to be a dead link (href="#"). Now it
+// falls back to previewing/opening its first linked doc, or — if it has
+// neither a URL nor any docs — opens the entry for editing so there's
+// always something to do when you click it.
+function handlePinClick(ev, entryId) {
+  const entry = entries.find(x => x.id === entryId);
+  if (entry && entry.url) return; // real URL: let the normal link/new-tab behavior happen
+  ev.preventDefault();
+  if (!entry) return;
+
+  const firstDoc = (entry.linked_docs || [])[0];
+  if (firstDoc) {
+    if (isPreviewable(firstDoc.url)) openDocPreview(firstDoc.title, firstDoc.url);
+    else window.open(firstDoc.url, '_blank', 'noopener');
+    return;
+  }
+
+  setMode('detailed');
+  openEntryModal(entryId);
+}
 
 // ---------- Filters ----------
 function renderFilters() {
@@ -1036,7 +1057,8 @@ Object.assign(window, {
   handleBackupFileChosen, showClearDataWarning, hideClearDataWarning, toggleLayoutEdit,
   openDocPreview, closeDocPreview, openPreviewInfoModal, closePreviewInfoModal,
   handleLogoFileChosen, removeLogo,
-  closeConfirmModal, confirmModalConfirmed, closeCategoryModal, submitNewCategory
+  closeConfirmModal, confirmModalConfirmed, closeCategoryModal, submitNewCategory,
+  handlePinClick
 });
 
 })();
