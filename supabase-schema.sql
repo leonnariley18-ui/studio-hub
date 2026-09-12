@@ -25,6 +25,7 @@ create table if not exists studio_hub.entries (
   pinned boolean not null default false,
   sort_order int not null default 0,
   layout jsonb, -- {x, y, w, h} from the Decorated view's drag/resize layout
+  logo_url text, -- uploaded per-entry logo/icon, overrides the emoji/default icon
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -34,6 +35,7 @@ create table if not exists studio_hub.entries (
 alter table studio_hub.entries add column if not exists start_date text;
 alter table studio_hub.entries add column if not exists end_date text;
 alter table studio_hub.entries add column if not exists layout jsonb;
+alter table studio_hub.entries add column if not exists logo_url text;
 
 create table if not exists studio_hub.linked_docs (
   id uuid primary key default gen_random_uuid(),
@@ -44,19 +46,32 @@ create table if not exists studio_hub.linked_docs (
   created_at timestamptz not null default now()
 );
 
--- Row Level Security, scoped only to these three tables in this schema.
+-- One row per created/updated event on an entry — a real activity log,
+-- separate from entries.created_at (which the flat log view no longer
+-- treats as "the" date once a start_date is set).
+create table if not exists studio_hub.entry_logs (
+  id uuid primary key default gen_random_uuid(),
+  entry_id uuid not null references studio_hub.entries(id) on delete cascade,
+  event_type text not null check (event_type in ('created', 'updated')),
+  created_at timestamptz not null default now()
+);
+
+-- Row Level Security, scoped only to these tables in this schema.
 alter table studio_hub.categories enable row level security;
 alter table studio_hub.entries enable row level security;
 alter table studio_hub.linked_docs enable row level security;
+alter table studio_hub.entry_logs enable row level security;
 
 -- No login for this dashboard (personal use) — anon key gets full access,
 -- but ONLY to studio_hub tables. Nothing outside this schema is touched.
 drop policy if exists "anon full access" on studio_hub.categories;
 drop policy if exists "anon full access" on studio_hub.entries;
 drop policy if exists "anon full access" on studio_hub.linked_docs;
+drop policy if exists "anon full access" on studio_hub.entry_logs;
 create policy "anon full access" on studio_hub.categories for all using (true) with check (true);
 create policy "anon full access" on studio_hub.entries for all using (true) with check (true);
 create policy "anon full access" on studio_hub.linked_docs for all using (true) with check (true);
+create policy "anon full access" on studio_hub.entry_logs for all using (true) with check (true);
 
 grant usage on schema studio_hub to anon, authenticated;
 grant all on all tables in schema studio_hub to anon, authenticated;

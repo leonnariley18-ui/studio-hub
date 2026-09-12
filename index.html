@@ -104,6 +104,15 @@
         <input type="text" id="f-title" required placeholder="e.g. Fitness HQ">
       </div>
 
+      <div class="field">
+        <label>Logo</label>
+        <div class="logo-field-row">
+          <img id="f-logo-preview" class="logo-preview" style="display:none;" alt="Logo preview">
+          <input type="file" id="f-logo-file" accept="image/*" onchange="handleLogoFileChosen(event)">
+          <button type="button" id="f-logo-remove-btn" class="row-remove" style="display:none;" onclick="removeLogo()" title="Remove logo">×</button>
+        </div>
+      </div>
+
       <div class="field" id="f-url-field">
         <label>URL</label>
         <input type="url" id="f-url" placeholder="https://…">
@@ -167,6 +176,11 @@
         <div id="docs-list"></div>
         <button type="button" class="add-field-btn" onclick="addDocRow()">+ Add linked doc / file</button>
       </div>
+
+      <div id="f-history-section" class="field-label" style="display:none; margin-top: 20px;">
+        History
+      </div>
+      <div id="entry-history-list"></div>
 
       <div class="modal-actions">
         <button type="button" class="delete-entry" id="delete-entry-btn" onclick="deleteCurrentEntry()" style="display:none;">Delete entry</button>

@@ -26,6 +26,8 @@ let currentView = 'grid';
 let activeCategoryFilter = null;
 let activeTagFilters = new Set();
 let editingEntryId = null;
+let pendingLogoFile = null;
+let removeLogoFlag = false;
 
 const STATUS_CLASS = { '🟢 Live': 'live', '🟡 In progress': 'progress', '🟣 Stalled': 'stalled', '🔵 Reference': 'ref' };
 const TYPE_LABEL = { app: 'App/Site', project: 'Project', note: 'Future note' };
@@ -124,7 +126,7 @@ async function loadEntries() {
   try {
     const { data, error } = await supabase
       .from('entries')
-      .select('*, category:categories(id, name), linked_docs(*)')
+      .select('*, category:categories(id, name), linked_docs(*), entry_logs(*)')
       .order('pinned', { ascending: false })
       .order('created_at', { ascending: false });
     if (error) return showToast('Could not load entries: ' + error.message);
@@ -261,7 +263,7 @@ function renderDecorated() {
     <div class="grid-stack-item" data-entry-id="${e.id}" gs-x="${l.x ?? ''}" gs-y="${l.y ?? ''}" gs-w="${l.w || 3}" gs-h="${l.h || 1}">
       <div class="grid-stack-item-content">
         <a class="dc-pin" href="${e.url || '#'}" target="${e.url ? '_blank' : '_self'}" rel="noopener">
-          <span class="em">${e.custom_fields?.emoji || iconForType(e.entry_type)}</span>
+          ${e.logo_url ? `<img class="pin-logo" src="${e.logo_url}" alt="">` : `<span class="em">${e.custom_fields?.emoji || iconForType(e.entry_type)}</span>`}
           <div class="info">
             <div class="t">${escapeHtml(e.title)} <span class="pin-star">👑</span></div>
             <div class="s">${TYPE_LABEL[e.entry_type]}${e.status ? ' · ' + e.status.replace(/^\S+\s/, '') : ''}</div>
@@ -384,6 +386,7 @@ function cardHtml(e) {
       <div class="type-rail ${e.entry_type}"></div>
       <div class="card-top">
         <div class="card-title">
+          ${e.logo_url ? `<img class="card-logo" src="${e.logo_url}" alt="">` : ''}
           ${e.url ? `<a href="${e.url}" target="_blank" rel="noopener">${escapeHtml(e.title)}</a>` : escapeHtml(e.title)}
           ${e.pinned ? '<span class="pin-star">👑</span>' : ''}
         </div>
@@ -495,8 +498,9 @@ function renderLog() {
     return;
   }
   el.innerHTML = filtered.map(e => {
-    const date = new Date(e.created_at);
-    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+    const dateStr = e.start_date
+      ? formatMonthYear(e.start_date)
+      : new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
     const statusClass = e.status ? (STATUS_CLASS[e.status] || 'live') : (e.entry_type === 'note' ? 'idea' : 'live');
     const statusLabel = e.status ? e.status.replace(/^\S+\s/, '') : (e.entry_type === 'note' ? 'idea' : '');
     return `
@@ -593,10 +597,13 @@ function addDocRow(title = '', url = '', docType = 'link') {
 
 function openEntryModal(entryId) {
   editingEntryId = entryId || null;
+  pendingLogoFile = null;
+  removeLogoFlag = false;
   const form = document.getElementById('entry-form');
   form.reset();
   document.getElementById('custom-fields-list').innerHTML = '';
   document.getElementById('docs-list').innerHTML = '';
+  document.getElementById('f-logo-file').value = '';
   populateCategorySelect();
 
   const entry = entryId ? entries.find(e => e.id === entryId) : null;
@@ -606,6 +613,8 @@ function openEntryModal(entryId) {
 
   const type = entry?.entry_type || 'app';
   setEntryType(type);
+  renderLogoPreview(entry?.logo_url || null);
+  renderEntryHistory(entry);
 
   if (entry) {
     document.getElementById('f-title').value = entry.title || '';
@@ -629,6 +638,58 @@ function openEntryModal(entryId) {
 function closeEntryModal() {
   document.getElementById('entry-modal-overlay').classList.remove('open');
   editingEntryId = null;
+  pendingLogoFile = null;
+  removeLogoFlag = false;
+}
+
+// ---------- Logo upload ----------
+function renderLogoPreview(url) {
+  const preview = document.getElementById('f-logo-preview');
+  const removeBtn = document.getElementById('f-logo-remove-btn');
+  if (url) {
+    preview.src = url;
+    preview.style.display = '';
+    removeBtn.style.display = '';
+  } else {
+    preview.src = '';
+    preview.style.display = 'none';
+    removeBtn.style.display = 'none';
+  }
+}
+
+function handleLogoFileChosen(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  pendingLogoFile = file;
+  removeLogoFlag = false;
+  const reader = new FileReader();
+  reader.onload = () => renderLogoPreview(reader.result);
+  reader.readAsDataURL(file);
+}
+
+function removeLogo() {
+  pendingLogoFile = null;
+  removeLogoFlag = true;
+  document.getElementById('f-logo-file').value = '';
+  renderLogoPreview(null);
+}
+
+// ---------- Entry activity history ----------
+function renderEntryHistory(entry) {
+  const section = document.getElementById('f-history-section');
+  const list = document.getElementById('entry-history-list');
+  if (!entry || !(entry.entry_logs || []).length) {
+    section.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  section.style.display = '';
+  const sorted = [...entry.entry_logs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  list.innerHTML = sorted.map(log => {
+    const label = log.event_type === 'created' ? 'Added' : 'Updated';
+    const dateStr = new Date(log.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `<div class="history-row"><span class="history-label">${label}</span><span class="history-date">${dateStr}</span></div>`;
+  }).join('');
 }
 
 async function handleEntrySubmit(ev) {
@@ -663,14 +724,29 @@ async function handleEntrySubmit(ev) {
     pinned: type === 'note' ? false : document.getElementById('f-pinned').checked
   };
 
+  if (removeLogoFlag) payload.logo_url = null;
+
   let entryId = editingEntryId;
   if (entryId) {
     const { error } = await supabase.from('entries').update(payload).eq('id', entryId);
     if (error) return showToast('Save failed: ' + error.message);
+    await supabase.from('entry_logs').insert({ entry_id: entryId, event_type: 'updated' });
   } else {
     const { data, error } = await supabase.from('entries').insert(payload).select().single();
     if (error) return showToast('Save failed: ' + error.message);
     entryId = data.id;
+    await supabase.from('entry_logs').insert({ entry_id: entryId, event_type: 'created' });
+  }
+
+  if (pendingLogoFile) {
+    const path = `logos/${entryId}/${Date.now()}-${pendingLogoFile.name}`;
+    const { error: upErr } = await supabase.storage.from('studio-hub-files').upload(path, pendingLogoFile, { upsert: true });
+    if (upErr) {
+      showToast('Entry saved, but logo upload failed: ' + upErr.message);
+    } else {
+      const logoUrl = supabase.storage.from('studio-hub-files').getPublicUrl(path).data.publicUrl;
+      await supabase.from('entries').update({ logo_url: logoUrl }).eq('id', entryId);
+    }
   }
 
   // Replace linked docs wholesale for simplicity.
@@ -771,6 +847,7 @@ function exportJSON() {
       custom_fields: e.custom_fields || {},
       pinned: e.pinned,
       layout: e.layout || null,
+      logo_url: e.logo_url || null,
       linked_docs: (e.linked_docs || []).map(d => ({ title: d.title, url: d.url, doc_type: d.doc_type }))
     }))
   };
@@ -829,7 +906,8 @@ async function importJSON() {
       tags: e.tags || [],
       custom_fields: e.custom_fields || {},
       pinned: !!e.pinned,
-      layout: e.layout || null
+      layout: e.layout || null,
+      logo_url: e.logo_url || null
     }).select().single();
     if (error || !newEntry) continue;
 
@@ -878,7 +956,8 @@ Object.assign(window, {
   openEntryModal, closeEntryModal, promptNewCategory, addCustomFieldRow, addDocRow, deleteCurrentEntry,
   openBackupModal, closeBackupModal, exportJSON, importJSON, clearAllData,
   handleBackupFileChosen, showClearDataWarning, hideClearDataWarning, toggleLayoutEdit,
-  openDocPreview, closeDocPreview, openPreviewInfoModal, closePreviewInfoModal
+  openDocPreview, closeDocPreview, openPreviewInfoModal, closePreviewInfoModal,
+  handleLogoFileChosen, removeLogo
 });
 
 })();

@@ -156,6 +156,7 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
 .dc-empty { grid-column: 1 / -1; }
 .dc-pin:hover { border-color: var(--accent); }
 .dc-pin .em { font-size: 17px; }
+.pin-logo { width: 22px; height: 22px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
 .dc-pin .info { flex: 1; min-width: 0; }
 .dc-pin .info .t { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .dc-pin .info .s { font-size: 11px; color: var(--sub); }
@@ -211,6 +212,7 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
 
 .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .card-title { font-weight: 600; font-size: 14.5px; display: flex; align-items: center; gap: 6px; }
+.card-logo { width: 20px; height: 20px; border-radius: 5px; object-fit: cover; flex-shrink: 0; }
 .card-title a { color: inherit; text-decoration: none; }
 .card-title a:hover { text-decoration: underline; text-decoration-color: var(--accent); }
 .pin-star { font-size: 11px; }
@@ -371,6 +373,15 @@ input[type="file"] {
   width: 100%; font-family: var(--sans); font-size: 12px; color: var(--sub);
   background: var(--paper-dim); border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px;
 }
+
+.logo-field-row { display: flex; align-items: center; gap: 10px; }
+.logo-field-row input[type="file"] { flex: 1; }
+.logo-preview { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); flex-shrink: 0; }
+
+.history-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 12px; }
+.history-row:last-child { border-bottom: none; }
+.history-label { color: var(--ink); font-weight: 500; }
+.history-date { font-family: var(--mono); color: var(--sub); }
 
 footer.site-foot { margin-top: 56px; text-align: center; font-family: var(--mono); font-size: 11px; color: var(--sub); position: relative; z-index: 1; }
 .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--paper); font-family: var(--mono); font-size: 12px; padding: 10px 18px; border-radius: 999px; z-index: 60; opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease; }
