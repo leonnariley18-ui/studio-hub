@@ -315,8 +315,8 @@ function iconForType(t) { return t === 'note' ? '💡' : t === 'project' ? '🎨
 
 // A pinned entry with no URL used to be a dead link (href="#"). Now it
 // falls back to previewing/opening its first linked doc, or — if it has
-// neither a URL nor any docs — opens the entry for editing so there's
-// always something to do when you click it.
+// neither — tells you so with a toast instead of doing nothing. Never
+// jumps into editing from the Decorated (home) view.
 function handlePinClick(ev, entryId) {
   const entry = entries.find(x => x.id === entryId);
   if (entry && entry.url) return; // real URL: let the normal link/new-tab behavior happen
@@ -330,8 +330,7 @@ function handlePinClick(ev, entryId) {
     return;
   }
 
-  setMode('detailed');
-  openEntryModal(entryId);
+  showToast('No link or doc on this entry yet — add one from the full ledger.');
 }
 
 // ---------- Filters ----------
