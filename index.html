@@ -72,6 +72,7 @@
     </div>
 
     <div class="filters" id="filters"><!-- populated --></div>
+    <div class="filters" id="tag-filters"><!-- populated --></div>
 
     <div class="type-legend">
       <span><span class="type-pip app"></span>App/Site</span>
@@ -101,6 +102,15 @@
       <div class="field">
         <label>Title</label>
         <input type="text" id="f-title" required placeholder="e.g. Fitness HQ">
+      </div>
+
+      <div class="field">
+        <label>Logo</label>
+        <div class="logo-field-row">
+          <img id="f-logo-preview" class="logo-preview" style="display:none;" alt="Logo preview">
+          <input type="file" id="f-logo-file" accept="image/*" onchange="handleLogoFileChosen(event)">
+          <button type="button" id="f-logo-remove-btn" class="row-remove" style="display:none;" onclick="removeLogo()" title="Remove logo">×</button>
+        </div>
       </div>
 
       <div class="field" id="f-url-field">
@@ -167,6 +177,11 @@
         <button type="button" class="add-field-btn" onclick="addDocRow()">+ Add linked doc / file</button>
       </div>
 
+      <div id="f-history-section" class="field-label" style="display:none; margin-top: 20px;">
+        History
+      </div>
+      <div id="entry-history-list"></div>
+
       <div class="modal-actions">
         <button type="button" class="delete-entry" id="delete-entry-btn" onclick="deleteCurrentEntry()" style="display:none;">Delete entry</button>
         <div class="right">
@@ -206,6 +221,37 @@
       <div class="inline-warning-actions">
         <button type="button" class="btn-secondary" onclick="hideClearDataWarning()">Cancel</button>
         <button type="button" class="btn-danger" onclick="clearAllData()">Yes, delete everything</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= GENERIC CONFIRM MODAL ================= -->
+<div class="modal-overlay" id="confirm-modal-overlay">
+  <div class="modal confirm-modal">
+    <h3 id="confirm-modal-title">Are you sure?</h3>
+    <p id="confirm-modal-message" class="hint"></p>
+    <div class="modal-actions">
+      <div class="right" style="width:100%; justify-content:flex-end;">
+        <button type="button" class="btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+        <button type="button" id="confirm-modal-confirm-btn" class="btn-danger" onclick="confirmModalConfirmed()">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= NEW CATEGORY MODAL ================= -->
+<div class="modal-overlay" id="category-modal-overlay">
+  <div class="modal confirm-modal">
+    <h3>New category</h3>
+    <div class="field">
+      <label>Category name</label>
+      <input type="text" id="new-category-name" placeholder="e.g. Finance" onkeydown="if(event.key==='Enter'){event.preventDefault();submitNewCategory();}">
+    </div>
+    <div class="modal-actions">
+      <div class="right" style="width:100%; justify-content:flex-end;">
+        <button type="button" class="btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+        <button type="button" class="btn-primary" onclick="submitNewCategory()">Create</button>
       </div>
     </div>
   </div>

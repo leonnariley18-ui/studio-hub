@@ -156,6 +156,7 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
 .dc-empty { grid-column: 1 / -1; }
 .dc-pin:hover { border-color: var(--accent); }
 .dc-pin .em { font-size: 17px; }
+.pin-logo { width: 22px; height: 22px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
 .dc-pin .info { flex: 1; min-width: 0; }
 .dc-pin .info .t { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .dc-pin .info .s { font-size: 11px; color: var(--sub); }
@@ -176,9 +177,12 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
 .view-switch button { font-family: var(--mono); font-size: 12px; border: none; background: none; color: var(--sub); padding: 7px 14px; border-radius: 6px; cursor: pointer; }
 .view-switch button.active { background: var(--paper); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 
-.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.filters:last-of-type { margin-bottom: 16px; }
 .chip { font-family: var(--mono); font-size: 11px; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); color: var(--sub); background: var(--paper-dim); backdrop-filter: blur(10px); cursor: pointer; }
 .chip.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--paper)); }
+.chip.tag-chip { font-family: var(--mono); }
+.chip.tag-chip.on { border-color: var(--ref); color: var(--ref); background: color-mix(in srgb, var(--ref) 12%, var(--paper)); }
 
 .add-btn { font-family: var(--sans); font-weight: 600; font-size: 13px; color: var(--accent-ink); background: var(--accent); border: none; padding: 10px 18px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent); }
 .add-btn:hover { filter: brightness(1.05); }
@@ -208,6 +212,7 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
 
 .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .card-title { font-weight: 600; font-size: 14.5px; display: flex; align-items: center; gap: 6px; }
+.card-logo { width: 20px; height: 20px; border-radius: 5px; object-fit: cover; flex-shrink: 0; }
 .card-title a { color: inherit; text-decoration: none; }
 .card-title a:hover { text-decoration: underline; text-decoration-color: var(--accent); }
 .pin-star { font-size: 11px; }
@@ -231,7 +236,8 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
 .doc-chip:hover { background: color-mix(in srgb, var(--accent) 18%, var(--sub-2)); }
 
 .card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
-.tag { font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 5px; background: var(--sub-2); color: var(--sub); }
+.tag { font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 5px; background: var(--sub-2); color: var(--sub); cursor: pointer; }
+.tag:hover { color: var(--ref); }
 
 .card-actions { display: flex; gap: 10px; margin-top: 2px; }
 .card-actions button { font-family: var(--mono); font-size: 10.5px; color: var(--sub); background: none; border: none; cursor: pointer; padding: 0; }
@@ -245,6 +251,9 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
 .log-row .main strong { font-weight: 600; }
 .log-row .main span.desc { color: var(--sub); font-size: 12px; margin-left: 8px; }
 .log-row .badge { font-family: var(--mono); font-size: 10.5px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.log-row-end { display: flex; align-items: center; gap: 10px; }
+.log-edit-btn { font-family: var(--mono); font-size: 10.5px; color: var(--sub); background: none; border: none; cursor: pointer; padding: 0; }
+.log-edit-btn:hover { color: var(--accent); }
 .badge.live { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
 .badge.progress { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
 .badge.stalled { background: color-mix(in srgb, var(--stall) 18%, transparent); color: var(--stall); }
@@ -258,6 +267,9 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
 .modal-overlay { position: fixed; inset: 0; background: rgba(10,8,14,.55); backdrop-filter: blur(3px); z-index: 50; display: none; align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto; }
 .modal-overlay.open { display: flex; }
 .modal { width: 100%; max-width: 620px; background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: 28px; position: relative; box-shadow: 0 30px 70px rgba(0,0,0,.35); }
+.confirm-modal { max-width: 380px; }
+.confirm-modal h3 { margin-bottom: 10px; }
+.confirm-modal .field { margin-top: 4px; }
 .modal-close { position: absolute; top: 18px; right: 18px; background: none; border: none; color: var(--sub); font-size: 18px; cursor: pointer; }
 .modal-close:hover { color: var(--ink); }
 
@@ -367,6 +379,15 @@ input[type="file"] {
   width: 100%; font-family: var(--sans); font-size: 12px; color: var(--sub);
   background: var(--paper-dim); border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px;
 }
+
+.logo-field-row { display: flex; align-items: center; gap: 10px; }
+.logo-field-row input[type="file"] { flex: 1; }
+.logo-preview { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); flex-shrink: 0; }
+
+.history-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 12px; }
+.history-row:last-child { border-bottom: none; }
+.history-label { color: var(--ink); font-weight: 500; }
+.history-date { font-family: var(--mono); color: var(--sub); }
 
 footer.site-foot { margin-top: 56px; text-align: center; font-family: var(--mono); font-size: 11px; color: var(--sub); position: relative; z-index: 1; }
 .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--paper); font-family: var(--mono); font-size: 12px; padding: 10px 18px; border-radius: 999px; z-index: 60; opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease; }
