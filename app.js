@@ -429,7 +429,13 @@ function docIcon(type) {
 }
 
 const PREVIEW_KINDS = {
-  pdf: 'iframe', html: 'iframe', htm: 'iframe',
+  pdf: 'iframe',
+  // Rendered via fetch + iframe.srcdoc, NOT iframe.src — see openDocPreview.
+  // Whatever content-type Supabase Storage actually serves a file as has
+  // proven unreliable to control from the upload side; srcdoc sidesteps
+  // that entirely by having the browser treat the fetched text as HTML
+  // unconditionally, regardless of any Content-Type header.
+  html: 'html', htm: 'html',
   png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', webp: 'image', svg: 'image',
   mp4: 'video', webm: 'video', mov: 'video',
   mp3: 'audio', wav: 'audio', ogg: 'audio',
@@ -489,14 +495,24 @@ function isPreviewable(url) {
   return previewKind(url) !== null;
 }
 
-// iframe is the fallback for PDF/HTML — the browser renders those itself,
-// with its own native chrome, which we can't restyle to match day/night.
-// Everything else gets built with our own themed markup so it actually
-// looks like part of the dashboard.
+// Raw iframe src is only used for PDF now — the browser renders that
+// itself with its own native chrome, which we can't restyle to match
+// day/night. HTML is fetched and injected via srcdoc instead of src (see
+// the 'html' branch below) so it renders correctly regardless of what
+// content-type Supabase actually served it as. Everything else gets
+// built with our own themed markup so it looks like part of the
+// dashboard.
+let currentPreviewBlobUrl = null;
+
 async function openDocPreview(title, url) {
   document.getElementById('doc-preview-title').textContent = title;
   document.getElementById('doc-preview-open-tab').href = url;
   document.getElementById('doc-preview-overlay').classList.add('open');
+
+  if (currentPreviewBlobUrl) {
+    URL.revokeObjectURL(currentPreviewBlobUrl);
+    currentPreviewBlobUrl = null;
+  }
 
   const kind = previewKind(url);
   const body = document.getElementById('doc-preview-body');
@@ -517,6 +533,32 @@ async function openDocPreview(title, url) {
     } catch (e) {
       body.innerHTML = `<pre class="preview-text">Could not load this file. Try "Open in new tab" instead.</pre>`;
     }
+  } else if (kind === 'html') {
+    body.innerHTML = `<iframe class="preview-frame" title="Document preview"></iframe>`;
+    try {
+      const res = await fetch(url);
+      let html = await res.text();
+      // Injects a <base> so any relative links/images/scripts in the
+      // uploaded page still resolve against its real folder, since
+      // srcdoc content has no URL of its own to resolve them against.
+      const baseHref = url.slice(0, url.lastIndexOf('/') + 1);
+      if (/<head[^>]*>/i.test(html)) {
+        html = html.replace(/<head([^>]*)>/i, `<head$1><base href="${baseHref}">`);
+      } else {
+        html = `<base href="${baseHref}">` + html;
+      }
+      body.querySelector('iframe').srcdoc = html;
+
+      // "Open in new tab" needs its own correctly-typed copy — a direct
+      // link to the raw file would hit the same wrong-content-type issue
+      // srcdoc sidesteps. A blob URL carries our own explicit type,
+      // independent of whatever Supabase actually served it as.
+      const blob = new Blob([html], { type: 'text/html' });
+      currentPreviewBlobUrl = URL.createObjectURL(blob);
+      document.getElementById('doc-preview-open-tab').href = currentPreviewBlobUrl;
+    } catch (e) {
+      body.innerHTML = `<pre class="preview-text">Could not load this file. Try "Open in new tab" instead.</pre>`;
+    }
   } else {
     body.innerHTML = `<iframe class="preview-frame" src="${url}" title="Document preview"></iframe>`;
   }
@@ -525,6 +567,10 @@ async function openDocPreview(title, url) {
 function closeDocPreview() {
   document.getElementById('doc-preview-overlay').classList.remove('open');
   document.getElementById('doc-preview-body').innerHTML = '';
+  if (currentPreviewBlobUrl) {
+    URL.revokeObjectURL(currentPreviewBlobUrl);
+    currentPreviewBlobUrl = null;
+  }
 }
 
 // ---------- Generic confirm modal (replaces window.confirm) ----------
