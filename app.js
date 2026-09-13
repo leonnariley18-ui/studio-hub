@@ -28,6 +28,8 @@ let activeTagFilters = new Set();
 let editingEntryId = null;
 let pendingLogoFile = null;
 let removeLogoFlag = false;
+let logSort = { key: 'date', dir: 'desc' };
+let collapsedCategories = new Set(JSON.parse(localStorage.getItem('studio_collapsed_categories') || '[]'));
 
 const STATUS_CLASS = { '🟢 Live': 'live', '🟡 In progress': 'progress', '🟣 Stalled': 'stalled', '🔵 Reference': 'ref' };
 const TYPE_LABEL = { app: 'App/Site', project: 'Project', note: 'Future note' };
@@ -378,12 +380,45 @@ function renderGrid() {
     .filter(g => g.items.length > 0);
   if (uncategorized.length > 0) groups.push({ cat: { name: 'Uncategorized' }, items: uncategorized });
 
-  el.innerHTML = groups.map(g => `
-    <div class="group">
-      <div class="group-head"><h2>${escapeHtml(g.cat.name)}</h2><span class="count">${g.items.length} ${g.items.length === 1 ? 'entry' : 'entries'}</span></div>
-      <div class="grid">${g.items.map(cardHtml).join('')}</div>
+  const toolbar = `
+    <div class="grid-toolbar">
+      <button type="button" onclick="setAllCategoriesCollapsed(true)">Collapse all</button>
+      <button type="button" onclick="setAllCategoriesCollapsed(false)">Expand all</button>
+    </div>`;
+
+  const sections = groups.map(g => {
+    const catKey = g.cat.id || '__uncategorized__';
+    const collapsed = collapsedCategories.has(catKey);
+    return `
+    <div class="cat-section ${collapsed ? 'collapsed' : ''}">
+      <div class="group-head cat-header" onclick="toggleCategoryCollapsed('${escapeAttr(catKey)}')">
+        <div class="cat-header-left"><span class="chev">▾</span><h2>${escapeHtml(g.cat.name)}</h2></div>
+        <span class="count">${g.items.length} ${g.items.length === 1 ? 'entry' : 'entries'}</span>
+      </div>
+      <div class="grid cat-body">${g.items.map(cardHtml).join('')}</div>
     </div>
-  `).join('');
+  `;
+  }).join('');
+
+  el.innerHTML = toolbar + sections;
+}
+
+function toggleCategoryCollapsed(catKey) {
+  if (collapsedCategories.has(catKey)) collapsedCategories.delete(catKey);
+  else collapsedCategories.add(catKey);
+  localStorage.setItem('studio_collapsed_categories', JSON.stringify([...collapsedCategories]));
+  renderGrid();
+}
+
+function setAllCategoriesCollapsed(collapsed) {
+  if (collapsed) {
+    const uncategorized = getFilteredEntries().some(e => !e.category_id);
+    collapsedCategories = new Set(categories.map(c => c.id).concat(uncategorized ? ['__uncategorized__'] : []));
+  } else {
+    collapsedCategories = new Set();
+  }
+  localStorage.setItem('studio_collapsed_categories', JSON.stringify([...collapsedCategories]));
+  renderGrid();
 }
 
 function cardHtml(e) {
@@ -413,7 +448,7 @@ function cardHtml(e) {
         ${statusDot}
       </div>
       ${dateRangeHtml ? `<div class="card-daterange">${dateRangeHtml}</div>` : ''}
-      ${e.custom_fields?.description ? `<div class="card-desc">${escapeHtml(e.custom_fields.description)}</div>` : ''}
+      ${e.custom_fields?.description ? `<div class="card-desc" title="${escapeAttr(e.custom_fields.description)}">${escapeHtml(e.custom_fields.description)}</div>` : ''}
       ${fieldsHtml ? `<div class="fields">${fieldsHtml}</div>` : ''}
       ${docsHtml ? `<div class="card-docs">${docsHtml}</div>` : ''}
       ${tagsHtml ? `<div class="card-tags">${tagsHtml}</div>` : ''}
@@ -622,6 +657,27 @@ function formatDateRange(start, end, isProjected) {
 }
 
 // ---------- Log view ----------
+const LOG_COLUMNS = [
+  { key: 'date', label: 'Date' },
+  { key: 'title', label: 'Title' },
+  { key: 'category', label: 'Category' },
+  { key: 'status', label: 'Status' }
+];
+
+function logSortValue(e, key) {
+  if (key === 'date') return e.start_date || e.created_at || '';
+  if (key === 'title') return (e.title || '').toLowerCase();
+  if (key === 'category') return (e.category?.name || '').toLowerCase();
+  if (key === 'status') return (e.status || '').toLowerCase();
+  return '';
+}
+
+function setLogSort(key) {
+  if (logSort.key === key) logSort.dir = logSort.dir === 'asc' ? 'desc' : 'asc';
+  else logSort = { key, dir: key === 'date' ? 'desc' : 'asc' };
+  renderLog();
+}
+
 function renderLog() {
   const el = document.getElementById('log-view');
   const filtered = getFilteredEntries();
@@ -629,24 +685,62 @@ function renderLog() {
     el.innerHTML = entries.length === 0 ? '' : `<div class="empty-state">No entries in this category yet.</div>`;
     return;
   }
-  el.innerHTML = filtered.map(e => {
+
+  const sorted = [...filtered].sort((a, b) => {
+    const av = logSortValue(a, logSort.key);
+    const bv = logSortValue(b, logSort.key);
+    if (av < bv) return logSort.dir === 'asc' ? -1 : 1;
+    if (av > bv) return logSort.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const headHtml = LOG_COLUMNS.map(c => {
+    const arrow = logSort.key === c.key ? (logSort.dir === 'asc' ? '▴' : '▾') : '·';
+    return `<th onclick="setLogSort('${c.key}')">${c.label} <span class="arrow">${arrow}</span></th>`;
+  }).join('');
+
+  const rowsHtml = sorted.map(e => {
     const dateStr = e.start_date
       ? formatMonthYear(e.start_date)
       : new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
     const statusClass = e.status ? (STATUS_CLASS[e.status] || 'live') : (e.entry_type === 'note' ? 'idea' : 'live');
     const statusLabel = e.status ? e.status.replace(/^\S+\s/, '') : (e.entry_type === 'note' ? 'idea' : '');
+    const docs = e.linked_docs || [];
+    const firstDoc = docs[0];
+    const tagsHtml = (e.tags || []).map(t => `<span class="tag-chip" onclick="setTagFilter('${escapeAttr(t)}')">#${escapeHtml(t)}</span>`).join('');
+
+    const visitBtn = e.url
+      ? `<a class="log-icon-btn" href="${e.url}" target="_blank" rel="noopener" title="Open site">↗</a>`
+      : `<span class="log-icon-btn disabled" title="No URL set">↗</span>`;
+
+    const docsBtn = firstDoc
+      ? `<button type="button" class="log-icon-btn" title="Docs" onclick="${isPreviewable(firstDoc.url) ? `openDocPreview('${escapeAttr(firstDoc.title)}', '${escapeAttr(firstDoc.url)}')` : `window.open('${escapeAttr(firstDoc.url)}', '_blank', 'noopener')`}">📄${docs.length > 1 ? `<span class="log-icon-badge">${docs.length}</span>` : ''}</button>`
+      : `<span class="log-icon-btn disabled" title="No docs">📄</span>`;
+
     return `
-      <div class="log-row">
-        <div class="date">${dateStr}</div>
-        <div class="type-pip ${e.entry_type}" title="${TYPE_LABEL[e.entry_type]}"></div>
-        <div class="main"><strong>${escapeHtml(e.title)}</strong>${e.custom_fields?.description ? `<span class="desc">${escapeHtml(e.custom_fields.description)}</span>` : ''}</div>
-        <div class="log-row-end">
-          ${statusLabel ? `<div class="badge ${statusClass}">${escapeHtml(statusLabel)}</div>` : ''}
-          <button class="log-edit-btn" onclick="openEntryModal('${e.id}')">Edit</button>
-        </div>
-      </div>
+      <tr>
+        <td>${dateStr}</td>
+        <td><div class="row-title"><span class="type-pip ${e.entry_type}" title="${TYPE_LABEL[e.entry_type]}"></span>${e.logo_url ? `<img class="row-logo-img" src="${e.logo_url}" alt="">` : ''}<strong>${escapeHtml(e.title)}</strong></div></td>
+        <td>${e.category?.name ? `<span class="chip">${escapeHtml(e.category.name)}</span>` : ''}</td>
+        <td>${statusLabel ? `<div class="badge ${statusClass}">${escapeHtml(statusLabel)}</div>` : ''}</td>
+        <td class="log-tags-cell">${tagsHtml}</td>
+        <td>
+          <div class="log-row-end">
+            ${visitBtn}
+            ${docsBtn}
+            <button class="log-icon-btn" title="Edit" onclick="openEntryModal('${e.id}')">✎</button>
+          </div>
+        </td>
+      </tr>
     `;
   }).join('');
+
+  el.innerHTML = `
+    <table class="log-table">
+      <thead><tr>${headHtml}<th>Tags</th><th></th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  `;
 }
 
 // ================= ENTRY MODAL =================
@@ -1121,7 +1215,7 @@ Object.assign(window, {
   openDocPreview, closeDocPreview, openPreviewInfoModal, closePreviewInfoModal,
   handleLogoFileChosen, removeLogo,
   closeConfirmModal, confirmModalConfirmed, closeCategoryModal, submitNewCategory,
-  handlePinClick
+  handlePinClick, setLogSort, toggleCategoryCollapsed, setAllCategoriesCollapsed
 });
 
 })();
