@@ -479,7 +479,7 @@ document.getElementById('outputOverlay').addEventListener('click', function(e) {
     document.getElementById('hqOverlay').classList.toggle('open');
   }
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/fitness-hq/service-worker.js');
+    navigator.serviceWorker.register('service-worker.js');
   }
 </script>
 </body>

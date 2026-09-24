@@ -2,21 +2,21 @@
   "name": "Fitness HQ",
   "short_name": "Fitness HQ",
   "description": "Leonna's personal fitness reference system",
-  "start_url": "/fitness-hq/workout-reference-guide.html",
-  "scope": "/fitness-hq/",
+  "start_url": "workout-reference-guide.html",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#1c3d2e",
   "theme_color": "#1c3d2e",
   "icons": [
     {
-      "src": "/fitness-hq/icon-192.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/fitness-hq/icon-512.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

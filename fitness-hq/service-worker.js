@@ -1,20 +1,20 @@
-const CACHE_NAME = 'fitness-hq-v3';
+const CACHE_NAME = 'fitness-hq-v4';
 
 const PAGES = [
-  '/fitness-hq/workout-reference-guide.html',
-  '/fitness-hq/fitness-ecosystem-master-plan-v1.2.html',
-  '/fitness-hq/calisthenics-master-plan-v2.0.html',
-  '/fitness-hq/fitness-nutrition-systems-v3.1.html',
-  '/fitness-hq/warm-up-routines-v1.2.html',
-  '/fitness-hq/yoga-strap-flexibility-routine.html',
-  '/fitness-hq/targeted-practice.html',
-  '/fitness-hq/checkin-summary.html',
-  '/fitness-hq/yoga-app-ecosystem-master-plan-v5.1.html',
-  '/fitness-hq/smoothie-lab.html',
-  '/fitness-hq/workout-logger.html',
-  '/fitness-hq/check-in-app.html',
-  '/fitness-hq/icon-192.png',
-  '/fitness-hq/icon-512.png',
+  'workout-reference-guide.html',
+  'fitness-ecosystem-master-plan.html',
+  'calisthenics-master-plan.html',
+  'fitness-nutrition-systems.html',
+  'warm-up-routines-v1.2.html',
+  'yoga-strap-flexibility-routine.html',
+  'targeted-practice.html',
+  'checkin-summary.html',
+  'yoga-app-ecosystem-master-plan-v5.1.html',
+  'smoothie-lab.html',
+  'workout-logger.html',
+  'check-in-app.html',
+  'icon-192.png',
+  'icon-512.png',
 ];
 
 // Install — cache all pages
