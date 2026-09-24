@@ -9,7 +9,7 @@ Leonna's personal dashboard for active apps, Claude projects, linked docs, and f
 | `index.html`, `app.js`, `styles.css` | The dashboard itself |
 | `config.js` | Supabase project URL + anon key |
 | `supabase-schema.sql` | One-time schema setup — run in the Supabase SQL editor |
-| `fitness-hq/` | The original Fitness HQ app suite (workout logger, yoga coach, meal plans, etc.), preserved as-is, linked from the dashboard |
+| `fitness-hq/` | The original Fitness HQ app suite (workout logger, yoga coach, meal plans, etc.) — back up and running after some dormant months, content refresh in progress |
 
 ## One-time Supabase setup
 
@@ -36,3 +36,5 @@ Day/night is a manual toggle (top right), independent of system theme, and appli
 
 ## Live Site
 [leonnariley18-ui.github.io/studio-hub](https://leonnariley18-ui.github.io/studio-hub)
+
+Fitness HQ: [leonnariley18-ui.github.io/studio-hub/fitness-hq](https://leonnariley18-ui.github.io/studio-hub/fitness-hq) — back up and running (PWA install, nav, and offline caching all fixed after the move), but content is still a work in progress as older reference pages get revisited and updated.
