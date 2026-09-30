@@ -493,15 +493,18 @@ function entryDetailBodyHtml(e) {
   const tagsHtml = tagsChipHtml(e.tags);
   const dateRangeHtml = formatDateRange(e.start_date, e.end_date, e.entry_type === 'note');
   const categoryName = categories.find(c => c.id === e.category_id)?.name;
+  const metaPills = [
+    `<span class="detail-pill">${escapeHtml(TYPE_LABEL[e.entry_type])}</span>`,
+    categoryName ? `<span class="detail-pill">${escapeHtml(categoryName)}</span>` : '',
+    e.status ? `<span class="detail-pill">${escapeHtml(e.status)}</span>` : ''
+  ].filter(Boolean).join('');
 
   return `
     <div class="detail-top">
       ${e.logo_url ? `<img class="detail-logo" src="${e.logo_url}" alt="">` : ''}
       <div>
         <div class="detail-title">${escapeHtml(e.title)} ${e.pinned ? '<span class="pin-star">👑</span>' : ''}</div>
-        <div class="detail-meta">
-          ${TYPE_LABEL[e.entry_type]}${categoryName ? ' · ' + escapeHtml(categoryName) : ''}${e.status ? ' · ' + escapeHtml(e.status) : ''}
-        </div>
+        <div class="detail-meta">${metaPills}</div>
         ${dateRangeHtml ? `<div class="card-daterange">${dateRangeHtml}</div>` : ''}
       </div>
     </div>
@@ -1069,7 +1072,9 @@ async function handleEntrySubmit(ev) {
     const prevEntry = entries.find(e => e.id === entryId);
     const { error } = await supabase.from('entries').update(payload).eq('id', entryId);
     if (error) return showToast('Save failed: ' + error.message);
-    const details = prevEntry ? summarizeEntryChanges(prevEntry, payload) : '';
+    const changeParts = prevEntry ? summarizeEntryChanges(prevEntry, payload) : [];
+    if (type !== 'note') changeParts.push(...computeDocDiffParts(prevEntry?.linked_docs));
+    const details = changeParts.join(' · ');
     if (details) await supabase.from('entry_logs').insert({ entry_id: entryId, event_type: 'updated', details });
   } else {
     const { data, error } = await supabase.from('entries').insert(payload).select().single();
@@ -1150,7 +1155,24 @@ function summarizeEntryChanges(prev, next) {
   if (!objEq(prev.custom_fields, next.custom_fields)) parts.push('Custom fields updated');
   if (!!prev.pinned !== !!next.pinned) parts.push(next.pinned ? 'Pinned' : 'Unpinned');
 
-  return parts.join(' · ');
+  return parts;
+}
+
+// Doc titles are known as soon as they're typed/auto-filled from a chosen
+// file — long before any upload resolves — so this can run at log-write
+// time without waiting on the actual docRows/upload pipeline further down.
+function computeDocDiffParts(prevDocs) {
+  const prevTitles = (prevDocs || []).map(d => d.title);
+  const currentTitles = [...document.querySelectorAll('#docs-list .doc-row-wrap')]
+    .map(row => row.querySelector('.doc-title').value.trim())
+    .filter(Boolean);
+  const added = currentTitles.filter(t => !prevTitles.includes(t));
+  const removed = prevTitles.filter(t => !currentTitles.includes(t));
+
+  const parts = [];
+  if (added.length) parts.push(`Added doc: ${added.map(t => `"${t}"`).join(', ')}`);
+  if (removed.length) parts.push(`Removed doc: ${removed.map(t => `"${t}"`).join(', ')}`);
+  return parts;
 }
 
 function deleteCurrentEntry() {

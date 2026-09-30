@@ -247,16 +247,62 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
 
 .doc-primary-mark { color: var(--accent); font-size: 9px; }
 
-/* ---------- Entry details popup (read-only) ---------- */
-.detail-modal { max-width: 560px; }
-.detail-top { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 4px; }
-.detail-logo { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
-.detail-title { font-family: var(--display); font-size: 19px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
-.detail-meta { font-family: var(--mono); font-size: 11px; color: var(--sub); margin-top: 4px; }
+/* ---------- Entry details popup (read-only) ----------
+   Frosted glass, not opaque: the page's own live day/night sky (gradient
+   + stars by night, light beams by day — see .sky/.stars/.glints) shows
+   through blurred, the same trick .decorated-card already uses. That's
+   also what makes it day/night-reactive for free — no extra JS, it's
+   the same --paper-dim/data-mode variables already wired up. */
+.detail-modal {
+  max-width: 560px;
+  background: var(--paper-dim);
+  backdrop-filter: blur(10px) saturate(160%);
+  overflow: hidden;
+  animation: detailPopIn .25s ease;
+}
+.detail-modal::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  border-radius: 20px 20px 0 0;
+  background: linear-gradient(100deg, var(--sky-1), var(--sky-2), var(--sky-3));
+}
+@keyframes detailPopIn {
+  from { opacity: 0; transform: scale(.96) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail-modal { animation: none; }
+}
+
+.detail-top { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 4px; }
+.detail-logo { width: 52px; height: 52px; border-radius: 14px; object-fit: cover; flex-shrink: 0; box-shadow: 0 0 0 3px var(--paper-dim), 0 0 0 4px var(--line); }
+.detail-title {
+  font-family: var(--display); font-size: 22px; font-weight: 500; display: flex; align-items: center; gap: 8px;
+  background: linear-gradient(100deg, var(--ink) 30%, var(--accent) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.detail-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.detail-pill { font-family: var(--mono); font-size: 10.5px; padding: 3px 10px; border-radius: 999px; background: var(--sub-2); color: var(--sub); }
 .detail-url { margin-top: 10px; }
 .detail-url a { font-family: var(--mono); font-size: 12px; color: var(--accent); text-decoration: none; word-break: break-all; }
 .detail-url a:hover { text-decoration: underline; }
 .detail-desc { font-size: 13px; color: var(--ink); line-height: 1.6; margin-top: 14px; }
+
+.detail-modal .doc-chip { padding: 5px 12px 5px 9px; }
+.detail-modal .doc-chip:hover, .detail-modal .tag:hover { transform: translateY(-1px); }
+.detail-modal .tag { padding: 3px 9px; transition: transform .12s ease; }
+.detail-modal .doc-chip { transition: background .15s ease, transform .12s ease; }
+
+/* Vertical timeline for this popup's history only — the edit modal's own
+   history list (#entry-history-list) keeps its plain stacked style. */
+#detail-history-list { position: relative; padding-left: 16px; }
+#detail-history-list::before {
+  content: ''; position: absolute; left: 3px; top: 4px; bottom: 4px; width: 1px; background: var(--line);
+}
+#detail-history-list .history-row { position: relative; border-bottom: none; padding: 8px 0; }
+#detail-history-list .history-row::before {
+  content: ''; position: absolute; left: -16px; top: 13px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 3px var(--paper-dim);
+}
 
 .log-view { display: none; overflow-x: auto; }
 .log-table { width: 100%; border-collapse: collapse; font-size: 13px; }
