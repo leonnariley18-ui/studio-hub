@@ -255,22 +255,35 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
    the same --paper-dim/data-mode variables already wired up. */
 .detail-modal {
   max-width: 560px;
-  background: var(--paper-dim);
-  backdrop-filter: blur(10px) saturate(160%);
+  background: color-mix(in srgb, var(--paper) 42%, transparent);
+  backdrop-filter: blur(40px) saturate(200%);
   overflow: hidden;
   animation: detailPopIn .25s ease;
 }
+/* A living gradient ring all the way around the popup, in the sky's own
+   palette, slowly flowing — the border-as-mask trick so only the thin
+   ring shows, not a filled rectangle. */
 .detail-modal::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
-  border-radius: 20px 20px 0 0;
-  background: linear-gradient(100deg, var(--sky-1), var(--sky-2), var(--sky-3));
+  content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 2px;
+  background: linear-gradient(120deg, var(--sky-1), var(--sky-2), var(--sky-3), var(--sky-2), var(--sky-1));
+  background-size: 300% 300%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: borderFlow 8s linear infinite;
+  pointer-events: none;
 }
 @keyframes detailPopIn {
   from { opacity: 0; transform: scale(.96) translateY(6px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
+@keyframes borderFlow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
 @media (prefers-reduced-motion: reduce) {
   .detail-modal { animation: none; }
+  .detail-modal::before { animation: none; }
 }
 
 .detail-top { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 4px; }
