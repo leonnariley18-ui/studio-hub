@@ -255,8 +255,8 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
    the same --paper-dim/data-mode variables already wired up. */
 .detail-modal {
   max-width: 560px;
-  background: color-mix(in srgb, var(--paper) 42%, transparent);
-  backdrop-filter: blur(40px) saturate(200%);
+  background: color-mix(in srgb, var(--paper) 30%, transparent);
+  backdrop-filter: blur(70px) saturate(180%);
   overflow: hidden;
   animation: detailPopIn .25s ease;
 }
