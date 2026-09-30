@@ -253,10 +253,15 @@ h1.title.font-josefin { font-family: 'Josefin Sans', sans-serif; font-weight: 30
    through blurred, the same trick .decorated-card already uses. That's
    also what makes it day/night-reactive for free — no extra JS, it's
    the same --paper-dim/data-mode variables already wired up. */
-.detail-modal {
+/* Two classes (.modal.detail-modal) so this reliably beats the base
+   .modal's opaque `background: var(--paper)` regardless of source
+   order — same specificity single-class rules otherwise just go to
+   whichever is declared last in the file, which was silently winning
+   here and made every earlier "frostier" attempt a no-op. */
+.modal.detail-modal {
   max-width: 560px;
-  background: color-mix(in srgb, var(--paper) 30%, transparent);
-  backdrop-filter: blur(70px) saturate(180%);
+  background: color-mix(in srgb, var(--paper) 62%, transparent);
+  backdrop-filter: blur(50px) saturate(160%);
   overflow: hidden;
   animation: detailPopIn .25s ease;
 }
