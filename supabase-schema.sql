@@ -43,8 +43,11 @@ create table if not exists studio_hub.linked_docs (
   title text not null,
   url text not null,
   doc_type text not null default 'link',
+  is_primary boolean not null default false, -- which doc "shows" when the entry has no URL
   created_at timestamptz not null default now()
 );
+
+alter table studio_hub.linked_docs add column if not exists is_primary boolean not null default false;
 
 -- One row per created/updated event on an entry — a real activity log,
 -- separate from entries.created_at (which the flat log view no longer
@@ -53,8 +56,11 @@ create table if not exists studio_hub.entry_logs (
   id uuid primary key default gen_random_uuid(),
   entry_id uuid not null references studio_hub.entries(id) on delete cascade,
   event_type text not null check (event_type in ('created', 'updated')),
+  details text, -- human-readable summary of what changed; null for older rows and 'created' events
   created_at timestamptz not null default now()
 );
+
+alter table studio_hub.entry_logs add column if not exists details text;
 
 -- Row Level Security, scoped only to these tables in this schema.
 alter table studio_hub.categories enable row level security;

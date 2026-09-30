@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTitleCarousel();
 
   document.getElementById('entry-form').addEventListener('submit', handleEntrySubmit);
+  document.getElementById('f-url').addEventListener('input', updateDocsPrimaryVisibility);
   document.querySelectorAll('.type-tab').forEach(t => t.addEventListener('click', () => setEntryType(t.dataset.type)));
 });
 
@@ -325,10 +326,10 @@ function handlePinClick(ev, entryId) {
   ev.preventDefault();
   if (!entry) return;
 
-  const firstDoc = (entry.linked_docs || [])[0];
-  if (firstDoc) {
-    if (isPreviewable(firstDoc.url)) openDocPreview(firstDoc.title, firstDoc.url);
-    else window.open(firstDoc.url, '_blank', 'noopener');
+  const targetDoc = entry.linked_docs?.find(d => d.is_primary) || (entry.linked_docs || [])[0];
+  if (targetDoc) {
+    if (isPreviewable(targetDoc.url)) openDocPreview(targetDoc.title, targetDoc.url);
+    else window.open(targetDoc.url, '_blank', 'noopener');
     return;
   }
 
@@ -421,23 +422,42 @@ function setAllCategoriesCollapsed(collapsed) {
   renderGrid();
 }
 
+// Shared by the grid card and the read-only details popup — a primary
+// doc (only meaningful when the entry has no URL of its own) gets a
+// small star so it's clear which one "is" the entry's main link.
+function docsChipHtml(docs) {
+  return (docs || []).map(d => {
+    const mark = d.is_primary ? ' <span class="doc-primary-mark" title="Main link">★</span>' : '';
+    if (isPreviewable(d.url)) {
+      return `<button type="button" class="doc-chip" onclick="openDocPreview('${escapeAttr(d.title)}', '${escapeAttr(d.url)}')">${docIcon(d.doc_type)} ${escapeHtml(d.title)}${mark}</button>`;
+    }
+    return `<a class="doc-chip" href="${d.url}" target="_blank" rel="noopener">${docIcon(d.doc_type)} ${escapeHtml(d.title)}${mark}</a>`;
+  }).join('');
+}
+
+function tagsChipHtml(tags, cls = 'tag') {
+  return (tags || []).map(t => `<span class="${cls}" onclick="setTagFilter('${escapeAttr(t)}')">#${escapeHtml(t)}</span>`).join('');
+}
+
+// Clicking anywhere on a card that isn't already a link/button (title,
+// doc chip, tag, Edit) opens the read-only details popup.
+function handleCardClick(ev, id) {
+  if (ev.target.closest('a, button, .tag, .doc-chip')) return;
+  openDetailModal(id);
+}
+
 function cardHtml(e) {
   const fieldsHtml = Object.entries(e.custom_fields || {})
     .filter(([k]) => k !== 'emoji' && k !== 'description')
     .map(([k, v]) => `<div class="field-row"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(String(v))}</span></div>`)
     .join('');
-  const docsHtml = (e.linked_docs || []).map(d => {
-    if (isPreviewable(d.url)) {
-      return `<button type="button" class="doc-chip" onclick="openDocPreview('${escapeAttr(d.title)}', '${escapeAttr(d.url)}')">${docIcon(d.doc_type)} ${escapeHtml(d.title)}</button>`;
-    }
-    return `<a class="doc-chip" href="${d.url}" target="_blank" rel="noopener">${docIcon(d.doc_type)} ${escapeHtml(d.title)}</a>`;
-  }).join('');
-  const tagsHtml = (e.tags || []).map(t => `<span class="tag" onclick="setTagFilter('${escapeAttr(t)}')">#${escapeHtml(t)}</span>`).join('');
+  const docsHtml = docsChipHtml(e.linked_docs);
+  const tagsHtml = tagsChipHtml(e.tags);
   const statusDot = e.status ? `<div class="status-dot ${STATUS_CLASS[e.status] || 'live'}" title="${escapeHtml(e.status)}"></div>` : '';
   const dateRangeHtml = formatDateRange(e.start_date, e.end_date, e.entry_type === 'note');
 
   return `
-    <div class="card ${e.entry_type === 'note' ? 'type-note' : ''}">
+    <div class="card ${e.entry_type === 'note' ? 'type-note' : ''}" onclick="handleCardClick(event, '${e.id}')">
       <div class="type-rail ${e.entry_type}"></div>
       <div class="card-top">
         <div class="card-title">
@@ -461,6 +481,51 @@ function cardHtml(e) {
 
 function docIcon(type) {
   return { doc: '📄', link: '🔗', canvas: '🎨', repo: '🔗', file: '📎' }[type] || '📄';
+}
+
+// ---------- Read-only entry details popup ----------
+function entryDetailBodyHtml(e) {
+  const fieldsHtml = Object.entries(e.custom_fields || {})
+    .filter(([k]) => k !== 'emoji' && k !== 'description')
+    .map(([k, v]) => `<div class="field-row"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(String(v))}</span></div>`)
+    .join('');
+  const docsHtml = docsChipHtml(e.linked_docs);
+  const tagsHtml = tagsChipHtml(e.tags);
+  const dateRangeHtml = formatDateRange(e.start_date, e.end_date, e.entry_type === 'note');
+  const categoryName = categories.find(c => c.id === e.category_id)?.name;
+
+  return `
+    <div class="detail-top">
+      ${e.logo_url ? `<img class="detail-logo" src="${e.logo_url}" alt="">` : ''}
+      <div>
+        <div class="detail-title">${escapeHtml(e.title)} ${e.pinned ? '<span class="pin-star">👑</span>' : ''}</div>
+        <div class="detail-meta">
+          ${TYPE_LABEL[e.entry_type]}${categoryName ? ' · ' + escapeHtml(categoryName) : ''}${e.status ? ' · ' + escapeHtml(e.status) : ''}
+        </div>
+        ${dateRangeHtml ? `<div class="card-daterange">${dateRangeHtml}</div>` : ''}
+      </div>
+    </div>
+    ${e.url ? `<div class="detail-url"><a href="${e.url}" target="_blank" rel="noopener">${escapeHtml(e.url)} ↗</a></div>` : ''}
+    ${e.custom_fields?.description ? `<div class="detail-desc">${escapeHtml(e.custom_fields.description)}</div>` : ''}
+    ${fieldsHtml ? `<div class="fields">${fieldsHtml}</div>` : ''}
+    ${docsHtml ? `<div class="field-label" style="margin-top:16px">Linked docs &amp; files</div><div class="card-docs">${docsHtml}</div>` : ''}
+    ${tagsHtml ? `<div class="field-label" style="margin-top:16px">Tags</div><div class="card-tags">${tagsHtml}</div>` : ''}
+    <div id="detail-history-section" class="field-label" style="display:none; margin-top:20px">History</div>
+    <div id="detail-history-list"></div>
+  `;
+}
+
+function openDetailModal(id) {
+  const entry = entries.find(x => x.id === id);
+  if (!entry) return;
+  document.getElementById('detail-modal-body').innerHTML = entryDetailBodyHtml(entry);
+  renderEntryHistory(entry, 'detail-history-section', 'detail-history-list');
+  document.getElementById('detail-modal-edit-btn').onclick = () => { closeDetailModal(); openEntryModal(entry.id); };
+  document.getElementById('detail-modal-overlay').classList.add('open');
+}
+
+function closeDetailModal() {
+  document.getElementById('detail-modal-overlay').classList.remove('open');
 }
 
 const PREVIEW_KINDS = {
@@ -800,7 +865,7 @@ function addCustomFieldRow(key = '', value = '') {
   list.appendChild(row);
 }
 
-function addDocRow(title = '', url = '', docType = 'link') {
+function addDocRow(title = '', url = '', docType = 'link', isPrimary = false) {
   const list = document.getElementById('docs-list');
   const row = document.createElement('div');
   row.className = 'doc-row-wrap';
@@ -814,6 +879,10 @@ function addDocRow(title = '', url = '', docType = 'link') {
     <div class="doc-row-file">
       <input type="file" class="doc-file-input">
       <span class="doc-file-status">${isFile ? '📎 ' + escapeHtml(title || 'uploaded file') : ''}</span>
+      <label class="doc-primary-label">
+        <input type="radio" name="doc-primary-radio" class="doc-primary-radio" ${isPrimary ? 'checked' : ''}>
+        Main link
+      </label>
     </div>
   `;
   if (isFile) row.dataset.existingUrl = url;
@@ -833,6 +902,14 @@ function addDocRow(title = '', url = '', docType = 'link') {
     }
   });
   list.appendChild(row);
+}
+
+// Which doc "shows" only matters when the entry has no URL of its own —
+// the radio group is hidden (and unenforced) whenever a URL is set.
+function updateDocsPrimaryVisibility() {
+  const section = document.getElementById('f-docs-section');
+  const hasUrl = document.getElementById('f-url').value.trim().length > 0;
+  section.classList.toggle('url-set', hasUrl);
 }
 
 function openEntryModal(entryId) {
@@ -869,9 +946,10 @@ function openEntryModal(entryId) {
     Object.entries(entry.custom_fields || {}).forEach(([k, v]) => {
       if (k !== 'description' && k !== 'emoji') addCustomFieldRow(k, v);
     });
-    (entry.linked_docs || []).forEach(d => addDocRow(d.title, d.url, d.doc_type));
+    (entry.linked_docs || []).forEach(d => addDocRow(d.title, d.url, d.doc_type, d.is_primary));
   }
 
+  updateDocsPrimaryVisibility();
   document.getElementById('entry-modal-overlay').classList.add('open');
 }
 
@@ -915,9 +993,9 @@ function removeLogo() {
 }
 
 // ---------- Entry activity history ----------
-function renderEntryHistory(entry) {
-  const section = document.getElementById('f-history-section');
-  const list = document.getElementById('entry-history-list');
+function renderEntryHistory(entry, sectionId = 'f-history-section', listId = 'entry-history-list') {
+  const section = document.getElementById(sectionId);
+  const list = document.getElementById(listId);
   if (!entry || !(entry.entry_logs || []).length) {
     section.style.display = 'none';
     list.innerHTML = '';
@@ -928,7 +1006,13 @@ function renderEntryHistory(entry) {
   list.innerHTML = sorted.map(log => {
     const label = log.event_type === 'created' ? 'Added' : 'Updated';
     const dateStr = new Date(log.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return `<div class="history-row"><span class="history-label">${label}</span><span class="history-date">${dateStr}</span></div>`;
+    const detailsHtml = log.details ? `<div class="history-details">${escapeHtml(log.details)}</div>` : '';
+    return `
+      <div class="history-row">
+        <div class="history-top"><span class="history-label">${label}</span><span class="history-date">${dateStr}</span></div>
+        ${detailsHtml}
+      </div>
+    `;
   }).join('');
 }
 
@@ -966,11 +1050,27 @@ async function handleEntrySubmit(ev) {
 
   if (removeLogoFlag) payload.logo_url = null;
 
+  // Which doc "shows" only matters when there's no URL — require a pick
+  // among any docs that actually look complete enough to save.
+  if (type !== 'note' && !payload.url) {
+    const candidateRows = [...document.querySelectorAll('#docs-list .doc-row-wrap')].filter(row => {
+      const hasTitle = row.querySelector('.doc-title').value.trim();
+      const hasUrl = row.querySelector('.doc-url').value.trim() || row.querySelector('.doc-file-input').files[0] || row.dataset.existingUrl;
+      return hasTitle && hasUrl;
+    });
+    if (candidateRows.length > 0 && !candidateRows.some(row => row.querySelector('.doc-primary-radio').checked)) {
+      return showToast('Pick which doc should open for this entry, or add a URL.');
+    }
+  }
+
+  const wasEditing = !!editingEntryId;
   let entryId = editingEntryId;
   if (entryId) {
+    const prevEntry = entries.find(e => e.id === entryId);
     const { error } = await supabase.from('entries').update(payload).eq('id', entryId);
     if (error) return showToast('Save failed: ' + error.message);
-    await supabase.from('entry_logs').insert({ entry_id: entryId, event_type: 'updated' });
+    const details = prevEntry ? summarizeEntryChanges(prevEntry, payload) : '';
+    if (details) await supabase.from('entry_logs').insert({ entry_id: entryId, event_type: 'updated', details });
   } else {
     const { data, error } = await supabase.from('entries').insert(payload).select().single();
     if (error) return showToast('Save failed: ' + error.message);
@@ -1015,7 +1115,8 @@ async function handleEntrySubmit(ev) {
         if (title || url || file) showToast('Skipped a linked doc — needs both a title and a file or URL.');
         continue;
       }
-      docRows.push({ entry_id: entryId, title, url, doc_type: docType });
+      const isPrimary = !payload.url && row.querySelector('.doc-primary-radio').checked;
+      docRows.push({ entry_id: entryId, title, url, doc_type: docType, is_primary: isPrimary });
     }
     if (docRows.length > 0) {
       const { error: docErr } = await supabase.from('linked_docs').insert(docRows);
@@ -1026,7 +1127,30 @@ async function handleEntrySubmit(ev) {
   closeEntryModal();
   await loadEntries();
   renderAll();
-  showToast(editingEntryId ? 'Entry updated' : 'Entry added');
+  showToast(wasEditing ? 'Entry updated' : 'Entry added');
+}
+
+// Builds a short, human-readable summary of what changed between the
+// entry's previous in-memory state and the payload about to be saved.
+// Returns '' when nothing meaningful changed (skip logging a no-op save).
+function summarizeEntryChanges(prev, next) {
+  const parts = [];
+  const catName = id => categories.find(c => c.id === id)?.name || 'none';
+  const arrEq = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || []);
+  const objEq = (a, b) => JSON.stringify(a || {}) === JSON.stringify(b || {});
+
+  if (prev.entry_type !== next.entry_type) parts.push(`Type: ${TYPE_LABEL[prev.entry_type]} → ${TYPE_LABEL[next.entry_type]}`);
+  if (prev.title !== next.title) parts.push(`Title: "${prev.title}" → "${next.title}"`);
+  if ((prev.status || null) !== (next.status || null)) parts.push(`Status: ${prev.status || '—'} → ${next.status || '—'}`);
+  if ((prev.start_date || null) !== (next.start_date || null)) parts.push(`Start: ${prev.start_date || '—'} → ${next.start_date || '—'}`);
+  if ((prev.end_date || null) !== (next.end_date || null)) parts.push(`End: ${prev.end_date || '—'} → ${next.end_date || '—'}`);
+  if ((prev.category_id || null) !== (next.category_id || null)) parts.push(`Category: ${catName(prev.category_id)} → ${catName(next.category_id)}`);
+  if ((prev.url || '') !== (next.url || '')) parts.push('Link updated');
+  if (!arrEq(prev.tags, next.tags)) parts.push('Tags updated');
+  if (!objEq(prev.custom_fields, next.custom_fields)) parts.push('Custom fields updated');
+  if (!!prev.pinned !== !!next.pinned) parts.push(next.pinned ? 'Pinned' : 'Unpinned');
+
+  return parts.join(' · ');
 }
 
 function deleteCurrentEntry() {
@@ -1191,6 +1315,27 @@ async function clearAllData() {
   showToast('All data cleared');
 }
 
+// One-off cleanup: wipes only the old ambiguous "Updated" log rows from
+// before detailed change summaries existed, leaving every entry's newer,
+// detailed history alone. Just a plain button — nothing here auto-hides
+// it or treats it specially; remove it later whenever it's no longer needed.
+async function clearOldHistory() {
+  if (!supabase) return showToast('Not connected to Supabase.');
+  showConfirmModal({
+    title: 'Clear old history?',
+    message: 'Deletes the old "Updated" log entries that don\'t have a detailed change summary. Newer, detailed history is left alone. There\'s no undo.',
+    confirmLabel: 'Yes, clear it',
+    danger: true,
+    onConfirm: async () => {
+      const { error } = await supabase.from('entry_logs').delete().is('details', null).eq('event_type', 'updated');
+      if (error) return showToast('Could not clear old history: ' + error.message);
+      await loadEntries();
+      renderAll();
+      showToast('Old history cleared');
+    }
+  });
+}
+
 // ---------- Utilities ----------
 function showToast(msg) {
   const el = document.getElementById('toast');
@@ -1215,7 +1360,8 @@ Object.assign(window, {
   openDocPreview, closeDocPreview, openPreviewInfoModal, closePreviewInfoModal,
   handleLogoFileChosen, removeLogo,
   closeConfirmModal, confirmModalConfirmed, closeCategoryModal, submitNewCategory,
-  handlePinClick, setLogSort, toggleCategoryCollapsed, setAllCategoriesCollapsed
+  handlePinClick, setLogSort, toggleCategoryCollapsed, setAllCategoriesCollapsed,
+  handleCardClick, openDetailModal, closeDetailModal, clearOldHistory
 });
 
 })();

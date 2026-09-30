@@ -173,6 +173,7 @@
           Linked docs &amp; files
           <button type="button" class="info-btn" onclick="openPreviewInfoModal()" title="What renders in-app vs. downloads">ⓘ</button>
         </div>
+        <p class="field-hint docs-primary-hint">No URL set — pick which doc below should open as this entry's main link.</p>
         <div id="docs-list"></div>
         <button type="button" class="add-field-btn" onclick="addDocRow()">+ Add linked doc / file</button>
       </div>
@@ -211,6 +212,10 @@
     <p class="hint" style="margin: 6px 0 0;">Pick the <span style="font-family: var(--mono);">.json</span> file you downloaded earlier. Or paste it directly:</p>
     <textarea id="import-json-input" rows="4" placeholder="…or paste backup JSON here" style="font-family: var(--mono); font-size: 11.5px;"></textarea>
     <button type="button" class="btn-primary" style="width:100%; margin-top: 10px;" onclick="importJSON()">Restore (replaces current data)</button>
+
+    <div class="field-label">History cleanup</div>
+    <p class="hint" style="margin: 0 0 8px;">One-off tool: wipes the old "Updated" history rows that predate detailed change logs, leaving every detailed entry alone.</p>
+    <button type="button" class="btn-secondary" style="width:100%; margin-bottom: 18px;" onclick="clearOldHistory()">Clear old history</button>
 
     <div class="field-label" style="color: var(--danger);">Danger zone</div>
     <div id="clear-data-idle">
@@ -292,6 +297,20 @@
       </div>
     </div>
     <div id="doc-preview-body" class="preview-body"></div>
+  </div>
+</div>
+
+<!-- ================= ENTRY DETAIL MODAL (read-only) ================= -->
+<div class="modal-overlay" id="detail-modal-overlay">
+  <div class="modal detail-modal">
+    <button class="modal-close" onclick="closeDetailModal()">✕</button>
+    <div id="detail-modal-body"></div>
+    <div class="modal-actions">
+      <div class="right">
+        <button type="button" class="btn-secondary" onclick="closeDetailModal()">Close</button>
+        <button type="button" class="btn-primary" id="detail-modal-edit-btn">Edit</button>
+      </div>
+    </div>
   </div>
 </div>
 
